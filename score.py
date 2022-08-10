@@ -2,7 +2,10 @@ import os
 
 def getScore(path):
     with open(path) as f:
-        score = f.readlines()[-1]
+        line = f.readlines()
+        if len(line) == 0:
+            return -1
+        score = line[-1]
         if 'Score = ' not in score:
             return -1
         score = int(score.lstrip("Score = "))
