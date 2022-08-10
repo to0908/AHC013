@@ -4,7 +4,6 @@ typedef long long ll;
 #define all(x) (x).begin(),(x).end()
 template<typename T1,typename T2> bool chmin(T1 &a,T2 b){if(a<=b)return 0; a=b; return 1;}
 template<typename T1,typename T2> bool chmax(T1 &a,T2 b){if(a>=b)return 0; a=b; return 1;}
-int dx[4]={0,1,0,-1}, dy[4]={1,0,-1,0};
 
 unsigned int randint() {
     static unsigned int tx = 123456789, ty=362436069, tz=521288629, tw=88675123;
@@ -49,8 +48,8 @@ struct Result {
 
 struct Solver {
     static constexpr char USED = 'x';
-    static constexpr int DR[4] = {0, 1, 0, -1};
-    static constexpr int DC[4] = {1, 0, -1, 0};
+    static constexpr int dx[4] = {0, 1, 0, -1};
+    static constexpr int dy[4] = {1, 0, -1, 0};
 
     int N, K;
     int action_count_limit;
@@ -63,8 +62,8 @@ struct Solver {
     }
 
     bool can_move(int row, int col, int dir) const{
-        int nrow = row + DR[dir];
-        int ncol = col + DC[dir];
+        int nrow = row + dx[dir];
+        int ncol = col + dy[dir];
         if (0 <= nrow && nrow < N && 0 <= ncol && ncol < N) {
             return field[nrow][ncol] == '0';
         }
@@ -82,8 +81,8 @@ struct Solver {
             int col = engine() % N;
             int dir = engine() % 4;
             if (field[row][col] != '0' && can_move(row, col, dir)) {
-                swap(field[row][col], field[row + DR[dir]][col + DC[dir]]);
-                ret.emplace_back(row, col, row + DR[dir], col + DC[dir]);
+                swap(field[row][col], field[row + dx[dir]][col + dy[dir]]);
+                ret.emplace_back(row, col, row + dx[dir], col + dy[dir]);
                 action_count_limit--;
             }
         }
@@ -92,31 +91,31 @@ struct Solver {
     }
 
     bool can_connect(int row, int col, int dir) const{
-        int nrow = row + DR[dir];
-        int ncol = col + DC[dir];
+        int nrow = row + dx[dir];
+        int ncol = col + dy[dir];
         while (0 <= nrow && nrow < N && 0 <= ncol && ncol < N) {
             if (field[nrow][ncol] == field[row][col]) {
                 return true;
             } else if (field[nrow][ncol] != '0') {
                 return false;
             }
-            nrow += DR[dir];
-            ncol += DC[dir];
+            nrow += dx[dir];
+            ncol += dy[dir];
         }
         return false;
     }
 
     ConnectAction line_fill(int row, int col, int dir){
-        int nrow = row + DR[dir];
-        int ncol = col + DC[dir];
+        int nrow = row + dx[dir];
+        int ncol = col + dy[dir];
         while (0 <= nrow && nrow < N && 0 <= ncol && ncol < N) {
             if (field[nrow][ncol] == field[row][col]) {
                 return ConnectAction(row, col, nrow, ncol);
             }
             assert(field[nrow][ncol] == '0');
             field[nrow][ncol] = USED;
-            nrow += DR[dir];
-            ncol += DC[dir];
+            nrow += dx[dir];
+            ncol += dy[dir];
         }
         assert(false);
     }

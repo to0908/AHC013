@@ -146,5 +146,5 @@ signed main(int argc, char *argv[]){
     }
 
     cerr << string(argv[1]).substr(3) << " Score = " << score;
-    cerr << ", K = " << K << " ,ratio = " << ratio << endl; 
+    cerr << ", K = " << K << ", Density = " << ratio << endl; 
 }
