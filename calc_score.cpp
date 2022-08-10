@@ -119,8 +119,12 @@ signed main(int argc, char *argv[]){
     for (int i = 0; i < N; i++) {
         in1 >> field[i];
     }
+
+    double ratio = (double)(K * 100) / (double)(N * N);
+    cout << "K = " << K << endl;
+    cout << "Density = " << ratio << endl; 
     
-    int n,m;
+    int n,m,score=0;
     while(in2>>n){
         vector<MoveAction> move;
         vector<ConnectAction> connect;
@@ -137,9 +141,10 @@ signed main(int argc, char *argv[]){
         }
         Result ret(move, connect);
 
-        int score = calc_score(N, field, ret);
+        score = calc_score(N, field, ret);
         cout << "Score = " << score << endl;
-        cerr << argv[1] << " Score = " << score << endl;
-
     }
+
+    cerr << argv[1] << " Score = " << score;
+    cerr << ", K = " << K << " ,ratio = " << ratio << endl; 
 }
