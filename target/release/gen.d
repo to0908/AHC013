@@ -1,1 +1,0 @@
-/mnt/c/Users/totori/Desktop/cpp/marathon/AHC/AHC013/target/release/gen: /mnt/c/Users/totori/Desktop/cpp/marathon/AHC/AHC013/src/bin/gen.rs /mnt/c/Users/totori/Desktop/cpp/marathon/AHC/AHC013/src/lib.rs
