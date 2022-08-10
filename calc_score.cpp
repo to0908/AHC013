@@ -145,6 +145,6 @@ signed main(int argc, char *argv[]){
         cout << "Score = " << score << endl;
     }
 
-    cerr << argv[1] << " Score = " << score;
+    cerr << string(argv[1]).substr(3) << " Score = " << score;
     cerr << ", K = " << K << " ,ratio = " << ratio << endl; 
 }
