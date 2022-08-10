@@ -1,11 +1,32 @@
-#include <cassert>
-#include <iostream>
-#include <map>
-#include <random>
-#include <utility>
-#include <vector>
-
+#include<bits/stdc++.h> 
 using namespace std;
+typedef long long ll;
+#define all(x) (x).begin(),(x).end()
+template<typename T1,typename T2> bool chmin(T1 &a,T2 b){if(a<=b)return 0; a=b; return 1;}
+template<typename T1,typename T2> bool chmax(T1 &a,T2 b){if(a>=b)return 0; a=b; return 1;}
+int dx[4]={0,1,0,-1}, dy[4]={1,0,-1,0};
+
+unsigned int randint() {
+    static unsigned int tx = 123456789, ty=362436069, tz=521288629, tw=88675123;
+    unsigned int tt = (tx^(tx<<11));
+    tx = ty; ty = tz; tz = tw;
+    return ( tw=(tw^(tw>>19))^(tt^(tt>>8)) );
+}
+
+struct Timer {
+    chrono::high_resolution_clock::time_point st;
+
+    Timer() { reset(); }
+
+    void reset() {
+        st = chrono::high_resolution_clock::now();
+    }
+
+    chrono::milliseconds::rep elapsed() {
+        auto ed = chrono::high_resolution_clock::now();
+        return chrono::duration_cast< chrono::milliseconds >(ed - st).count();
+    }
+};
 
 
 struct MoveAction {
@@ -37,13 +58,11 @@ struct Solver {
     vector<string> field;
 
     Solver(int N, int K, const vector<string> &field, int seed = 0) : 
-        N(N), K(K), action_count_limit(K * 100), field(field)
-    {
+        N(N), K(K), action_count_limit(K * 100), field(field){
         engine.seed(seed);
     }
 
-    bool can_move(int row, int col, int dir) const
-    {
+    bool can_move(int row, int col, int dir) const{
         int nrow = row + DR[dir];
         int ncol = col + DC[dir];
         if (0 <= nrow && nrow < N && 0 <= ncol && ncol < N) {
@@ -52,8 +71,7 @@ struct Solver {
         return false;
     }
 
-    vector<MoveAction> move(int move_limit = -1)
-    {
+    vector<MoveAction> move(int move_limit = -1){
         vector<MoveAction> ret;
         if (move_limit == -1) {
             move_limit = K * 50;
@@ -73,8 +91,7 @@ struct Solver {
         return ret;
     }
 
-    bool can_connect(int row, int col, int dir) const
-    {
+    bool can_connect(int row, int col, int dir) const{
         int nrow = row + DR[dir];
         int ncol = col + DC[dir];
         while (0 <= nrow && nrow < N && 0 <= ncol && ncol < N) {
@@ -89,8 +106,7 @@ struct Solver {
         return false;
     }
 
-    ConnectAction line_fill(int row, int col, int dir)
-    {
+    ConnectAction line_fill(int row, int col, int dir){
         int nrow = row + DR[dir];
         int ncol = col + DC[dir];
         while (0 <= nrow && nrow < N && 0 <= ncol && ncol < N) {
@@ -105,8 +121,7 @@ struct Solver {
         assert(false);
     }
 
-    vector<ConnectAction> connect()
-    {
+    vector<ConnectAction> connect(){
         vector<ConnectAction> ret;
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < N; j++) {
@@ -126,8 +141,7 @@ struct Solver {
         return ret;
     }
 
-    Result solve()
-    {
+    Result solve(){
         // create random moves
         auto moves = move();
         // from each computer, connect to right and/or bottom if it will reach the same type
@@ -140,8 +154,7 @@ struct UnionFind {
     map<pair<int,int>, pair<int, int>> parent;
     UnionFind() :parent() {}
 
-    pair<int, int> find(pair<int, int> x)
-    {
+    pair<int, int> find(pair<int, int> x){
         if (parent.find(x) == parent.end()) {
             parent[x] = x;
             return x;
@@ -153,8 +166,7 @@ struct UnionFind {
         }
     }
 
-    void unite(pair<int, int> x, pair<int, int> y)
-    {
+    void unite(pair<int, int> x, pair<int, int> y){
         x = find(x);
         y = find(y);
         if (x != y) {
@@ -163,8 +175,7 @@ struct UnionFind {
     }
 };
 
-int calc_score(int N, vector<string> field, const Result &res)
-{
+int calc_score(int N, vector<string> field, const Result &res){
     for (auto r : res.move) {
         assert(field[r.before_row][r.before_col] != '0');
         assert(field[r.after_row][r.after_col] == '0');
@@ -200,8 +211,7 @@ int calc_score(int N, vector<string> field, const Result &res)
     return max(score, 0);
 }
 
-void print_answer(const Result &res)
-{
+void print_answer(const Result &res){
     cout << res.move.size() << endl;
     for (auto m : res.move) {
         cout << m.before_row << " " << m.before_col << " "
@@ -215,8 +225,7 @@ void print_answer(const Result &res)
 }
 
 
-int main()
-{
+int main(){
     int N, K;
     cin >> N >> K;
     vector<string> field(N);
@@ -227,9 +236,8 @@ int main()
     Solver s(N, K, field);
     auto ret = s.solve();
 
-    cerr << "Score = " << calc_score(N, field, ret) << endl;
+    // cerr << "Score = " << calc_score(N, field, ret) << endl;
 
     print_answer(ret);
 
-    return 0;
 }

@@ -1,4 +1,5 @@
-.vscode
+.vscode/c_cpp*
+.vscode/setting*
 in
 out
 score
