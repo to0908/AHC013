@@ -110,36 +110,36 @@ signed main(int argc, char *argv[]){
     cin.tie(0);
     cout << fixed << setprecision(20);
 
-    int N, K;
     ifstream in1(argv[1]);
     ifstream in2(argv[2]);
+
+    int N, K;
     in1 >> N >> K;
     vector<string> field(N);
     for (int i = 0; i < N; i++) {
         in1 >> field[i];
     }
-
+    
     int n,m;
-    vector<MoveAction> move;
-    vector<ConnectAction> connect;
-    in2 >> n;
-    for(int i=0;i<n;i++){
-        int a,b,c,d;
-        in2 >> a >> b >> c >> d;
-        move.push_back(MoveAction(a,b,c,d));
+    while(in2>>n){
+        vector<MoveAction> move;
+        vector<ConnectAction> connect;
+        for(int i=0;i<n;i++){
+            int a,b,c,d;
+            in2 >> a >> b >> c >> d;
+            move.push_back(MoveAction(a,b,c,d));
+        }
+        in2 >> m;
+        for(int i=0;i<m;i++){
+            int a,b,c,d;
+            in2>>a>>b>>c>>d;
+            connect.push_back(ConnectAction(a,b,c,d));
+        }
+        Result ret(move, connect);
+
+        int score = calc_score(N, field, ret);
+        cout << "Score = " << score << endl;
+        cerr << argv[1] << " Score = " << score << endl;
+
     }
-    in2 >> m;
-    for(int i=0;i<m;i++){
-        int a,b,c,d;
-        in2>>a>>b>>c>>d;
-        connect.push_back(ConnectAction(a,b,c,d));
-    }
-    Result ret(move, connect);
-
-    int score = calc_score(N, field, ret);
-    cout << "Score = " << score << endl;
-    cerr << argv[1] << " Score = " << score << endl;
-
-    return 0;
-
 }
