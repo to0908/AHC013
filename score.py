@@ -19,12 +19,12 @@ if __name__ == '__main__':
         if score < 0: 
             continue
         sum += int(score)
-        print(f"{file}: {score}")
+        # print(f"{file}: {score}")
         cnt += 1
 
     print("sum:", sum)
     print("mean:", sum / cnt)
     print("cnt:", cnt)
-    print("estimated 100 case score:", '{:_}'.format(sum * 100 / cnt))
-    print('Max Score :', '{:_}'.format(10**8))
-    print("ratio:", (sum / cnt) / 10**6)
+    print("estimated 50 case score:", '{:_}'.format(sum * 50 / cnt))
+    # print('Max Score :', '{:_}'.format(10**8))
+    # print("ratio:", (sum / cnt) / 10**6)

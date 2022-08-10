@@ -4,3 +4,5 @@ in
 out
 score
 a.exe
+a.out
+calc_score.out

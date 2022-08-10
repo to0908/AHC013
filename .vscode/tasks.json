@@ -8,23 +8,25 @@
             "type": "shell",
 
             "command": [
-                "cd ${fileDirname} &&",
-                "g++ -std=gnu++1z -I . -O2 -Wall -Wfatal-errors -Wextra -Wl,-stack,0x10000000 ${fileBasename} &&",
-                "g++ calc_score.cpp -o calc_score &&", // calc_scoreのコンパイル
+                // "cd ${fileDirname} &&",
+                // "g++ -std=gnu++1z -I . -O2 -Wall -Wfatal-errors -Wextra -Wl,-stack,0x10000000 ${fileBasename} &&",
+                // "g++ calc_score.cpp -o calc_score &&", // calc_scoreのコンパイル
 
                 // "for /l %i in (0,1,9) do",
                 // "a.exe","< in/000%i.txt","> out/000%i.txt &&",
                 // "cargo run --release --bin vis in/000%i.txt out/000%i.txt 1> score/000%i.txt 2> cerr/a.txt&&",
                 // "if %i == 9 python score.py"
 
-                "a.exe < in/0000.txt > out/0000.txt &&",
-                "calc_score.exe in/0000.txt out/0000.txt > score/0000.txt"
+                // "a.exe < in/0000.txt > out/0000.txt &&",
+                // "calc_score.exe in/0000.txt out/0000.txt > score/0000.txt"
 
                 // "a.exe < in/0000.txt > out/0000.txt &&",
 
                 // "for /l %i in (10,1,99) do",
                 // "a.exe","< in/00%i.txt","> out/00%i.txt &&",
                 // "if %i == 99 python score.py"
+
+                "bash run.sh"
             ],
             "group": {
                 "kind": "build",
