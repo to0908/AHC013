@@ -24,7 +24,7 @@ def getCerr(path):
         line = f.readlines()
         if len(line) == 0:
             return -1
-        time_ms = int(line[0].lstrip("Time = "))
+        time_ms = int(line[-1].lstrip("Time = "))
     return time_ms
 
 if __name__ == '__main__':

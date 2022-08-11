@@ -76,7 +76,7 @@ struct Result {
     Result(const vector<MoveAction> &move, const vector<ConnectAction> &con) : move(move), connect(con) {}
 };
 
-struct Solver {
+struct BaseSolver {
     static constexpr int USED = 9;
     int dxy[4];
 
@@ -89,9 +89,8 @@ struct Solver {
     bool hasi[2500];
     vector<int> field_list;
     int server_pos[5][100];
-    vector<int> empty_pos;
 
-    Solver(int N, int K, const vector<string> &field_, int seed = 0) : 
+    BaseSolver(int N, int K, const vector<string> &field_, int seed = 0) : 
         N(N), K(K), action_count_limit(K * 100){
         int cnt[K] = {};
         for(int i=1;i<=N;i++){
@@ -101,9 +100,6 @@ struct Solver {
                 if(field[pos] != 0) {
                     server_pos[field[pos]-1][cnt[field[pos]-1]] = pos;
                     cnt[field[pos]-1]++;
-                }
-                else{
-                    empty_pos.emplace_back(pos);
                 }
                 field_list.emplace_back(pos);
                 rev_field[pos] = {i-1, j-1};
@@ -271,13 +267,50 @@ struct Solver {
         }
 
 
-
         // TODO:
         // ここで回数がoverする時は最後までやって得られるScoreが小さいものを分解していくみたいな感じが良いか
         // 分解する際にも、いきなり真ん中で割るとスコアが大きく下がってしまう。端の方から分解するのが良い。
 
-
         return ret;
+    }
+
+    Result base_solve(){
+        // create random moves
+        auto moves = move(0);
+
+        // from each computer, connect to right and/or bottom if it will reach the same type
+        auto connects = connect();
+        return Result(moves, connects);
+    }
+
+    void print_answer(const Result &res){
+        cout << res.move.size() << "\n";
+        for (auto m : res.move) {
+            auto [x1, y1] = rev_field[m.pos1];
+            auto [x2, y2] = rev_field[m.pos2];
+            cout << x1 << " " << y1 << " "
+                << x2 << " " << y2 << "\n";
+        }
+        cout << res.connect.size() << "\n";
+        for (auto m : res.connect) {
+            auto [x1, y1] = rev_field[m.pos1];
+            auto [x2, y2] = rev_field[m.pos2];
+            cout << x1 << " " << y1 << " "
+                << x2 << " " << y2 << "\n";
+        }
+    }
+};
+
+
+struct DenseSolver : public BaseSolver{
+    vector<int> empty_pos;
+
+    DenseSolver(int N, int K, const vector<string> &field_, int seed = 0) : BaseSolver(N, K, field_, seed) {
+        for(auto pos : field_list){
+            if(field[pos] == 0) {
+                empty_pos.emplace_back(pos);
+            }
+        }
     }
 
     Result solve(){
@@ -288,25 +321,7 @@ struct Solver {
         auto connects = connect();
         return Result(moves, connects);
     }
-
-    void print_answer(const Result &res){
-        cout << res.move.size() << endl;
-        for (auto m : res.move) {
-            auto [x1, y1] = rev_field[m.pos1];
-            auto [x2, y2] = rev_field[m.pos2];
-            cout << x1 << " " << y1 << " "
-                << x2 << " " << y2 << endl;
-        }
-        cout << res.connect.size() << endl;
-        for (auto m : res.connect) {
-            auto [x1, y1] = rev_field[m.pos1];
-            auto [x2, y2] = rev_field[m.pos2];
-            cout << x1 << " " << y1 << " "
-                << x2 << " " << y2 << endl;
-        }
-    }
 };
-
 
 
 int main(){
@@ -320,9 +335,17 @@ int main(){
         cin >> field[i];
     }
 
-    Solver s(N, K, field);
-    auto ret = s.solve();
+    if(N*N - K * 100 < 100) {
+        cerr << "Dense Solver" << endl;
+        DenseSolver s(N, K, field);
+        auto ret = s.solve();
+        s.print_answer(ret);
+    }
+    else{
+        BaseSolver s(N, K, field);
+        auto ret = s.base_solve();
+        s.print_answer(ret);
+    }
 
-    s.print_answer(ret);
     cerr << "Time = " << time.elapsed() << endl;
 }
