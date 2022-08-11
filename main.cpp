@@ -27,17 +27,49 @@ struct Timer {
     }
 };
 
+class UnionFind{
+    public:
+    //親の番号を格納する。親だった場合は-(その集合のサイズ)
+    vector<int> parent;
+
+    UnionFind(int N){
+        parent = vector<int>(N,-1);
+    }
+
+    int root(int A){
+        if(parent[A] < 0) return A;
+        return parent[A]=root(parent[A]);
+    }
+
+    int size(int A){
+        return -parent[root(A)];
+    }
+
+    bool unite(int A, int B) {
+        A = root(A), B = root(B);
+        if(A == B) return false; 
+
+        if(size(A) < size(B)) swap(A,B);
+        parent[A] += parent[B];
+        parent[B] = A;
+        return true;
+    }
+
+    bool same(int A, int B){
+        return root(A)==root(B);
+    } 
+};
 
 struct MoveAction {
-    int before_row, before_col, after_row, after_col;
-    MoveAction(int before_row, int before_col, int after_row, int after_col) : 
-        before_row(before_row), before_col(before_col), after_row(after_row), after_col(after_col) {}
+    int pos1, pos2;
+    MoveAction(int pos1, int pos2) : 
+        pos1(pos1), pos2(pos2) {}
 };
 
 struct ConnectAction {
-    int c1_row, c1_col, c2_row, c2_col;
-    ConnectAction(int c1_row, int c1_col, int c2_row, int c2_col) : 
-        c1_row(c1_row), c1_col(c1_col), c2_row(c2_row), c2_col(c2_col) {}
+    int pos1, pos2;
+    ConnectAction(int pos1, int pos2) : 
+        pos1(pos1), pos2(pos2) {}
 };
 
 struct Result {
@@ -47,27 +79,85 @@ struct Result {
 };
 
 struct Solver {
-    static constexpr char USED = 'x';
-    static constexpr int dx[4] = {0, 1, 0, -1};
-    static constexpr int dy[4] = {1, 0, -1, 0};
+    static constexpr int USED = 9;
+    int dxy[4];
 
     int N, K;
     int action_count_limit;
     mt19937 engine;
-    vector<string> field;
+    int field[2500];
+    array<int, 2> rev_field[2500];
+    bool hasi[2500];
+    vector<int> field_list;
 
-    Solver(int N, int K, const vector<string> &field, int seed = 0) : 
-        N(N), K(K), action_count_limit(K * 100), field(field){
+    Solver(int N, int K, const vector<string> &field_, int seed = 0) : 
+        N(N), K(K), action_count_limit(K * 100){
+        for(int i=1;i<=N;i++){
+            for(int j=1;j<=N;j++){
+                int pos = i*(N+2)+j;
+                field[pos] = field_[i-1][j-1] - '0';
+                field_list.emplace_back(pos);
+                rev_field[pos] = {i-1, j-1};
+                if(i == 1 or i == N or j == 1 or j == N) hasi[pos] = true;
+                else hasi[pos] = false;
+            }
+            field[i*(N+2)] = -1;
+            field[i*(N+3)-1] = -1;
+        }
+        for(int i=0;i<N+2;i+=N+1){
+            for(int j=0;j<N+2;j++){
+                field[i*(N+2)+j] = -1;
+            }
+        }
+        // RDLU
+        // dxy = {1, N+2, -1, -N-2};
+        dxy[0] = 1;
+        dxy[1] = N+2;
+        dxy[2] = -1;
+        dxy[3] = -N-2;
         engine.seed(seed);
     }
 
-    bool can_move(int row, int col, int dir) const{
-        int nrow = row + dx[dir];
-        int ncol = col + dy[dir];
-        if (0 <= nrow && nrow < N && 0 <= ncol && ncol < N) {
-            return field[nrow][ncol] == '0';
+    int calc_score(const Result &res){
+        for (auto r : res.move) {
+            assert(field[r.pos1] != 0);
+            assert(field[r.pos2] == 0);
+            swap(field[r.pos1], field[r.pos2]);
         }
-        return false;
+
+        UnionFind uf(N*N);
+
+        for (auto r : res.connect) {
+            int pos1 = r.pos1;
+            int pos2 = r.pos2;
+            // TODO: ufのこの処理はバグの要因になりそうなのでどうにかする
+            uf.unite(pos1-N-3, pos2-N-3);
+        }
+
+        vector<int> computers;
+        for(auto &pos : field_list){
+            if (field[pos] != 0) {
+                computers.emplace_back(pos);
+            }
+        }
+
+        int score = 0;
+        for (int i = 0; i < (int)computers.size(); i++) {
+            for (int j = i+1; j < (int)computers.size(); j++) {
+                auto c1 = computers[i];
+                auto c2 = computers[j];
+                if (uf.root(c1) == uf.root(c2)) {
+                    score += (field[c1] == field[c2]) ? 1 : -1;
+                }
+            }
+        }
+
+        return max(score, 0);
+    }
+
+    bool can_move(int pos, int dir) const{
+        int npos = pos + dxy[dir];
+        return field[npos] == 0;
     }
 
     vector<MoveAction> move(int move_limit = -1){
@@ -76,74 +166,69 @@ struct Solver {
             move_limit = K * 50;
         }
 
-        for (int i = 0; i < move_limit; i++) {
-            int row = engine() % N;
-            int col = engine() % N;
-            int dir = engine() % 4;
-            if (field[row][col] != '0' && can_move(row, col, dir)) {
-                swap(field[row][col], field[row + dx[dir]][col + dy[dir]]);
-                ret.emplace_back(row, col, row + dx[dir], col + dy[dir]);
-                action_count_limit--;
-            }
-        }
+        // for (int i = 0; i < move_limit; i++) {
+        //     int row = engine() % N;
+        //     int col = engine() % N;
+        //     int dir = engine() % 4;
+        //     if (field[row][col] != '0' && can_move(row, col, dir)) {
+        //         swap(field[row][col], field[row + dx[dir]][col + dy[dir]]);
+        //         ret.emplace_back(row, col, row + dx[dir], col + dy[dir]);
+        //         action_count_limit--;
+        //     }
+        // }
 
         return ret;
     }
 
-    array<int,2> can_connect(int row, int col, int dir) const{
-        // can connect -> return {x, y}
-        // cannot -> return {-1, -1}
-        int nrow = row + dx[dir];
-        int ncol = col + dy[dir];
-        while (0 <= nrow && nrow < N && 0 <= ncol && ncol < N) {
-            if (field[nrow][ncol] == field[row][col]) {
-                return {nrow, ncol};
-            } else if (field[nrow][ncol] != '0') {
-                return {-1, -1};
+    int can_connect(int pos, int dir) const{
+        // can connect -> return npos
+        // cannot -> return -1
+        int npos = pos + dxy[dir];
+        while (field[npos] != -1) {
+            if (field[npos] == field[pos]) {
+                return npos;
+            } else if (field[npos] != 0) {
+                return -1;
             }
-            nrow += dx[dir];
-            ncol += dy[dir];
+            npos += dxy[dir];
         }
-        return {-1, -1};
+        return -1;
     }
 
-    ConnectAction line_fill(int row, int col, int dir){
-        int nrow = row + dx[dir];
-        int ncol = col + dy[dir];
-        while (0 <= nrow && nrow < N && 0 <= ncol && ncol < N) {
-            if (field[nrow][ncol] == field[row][col]) {
-                return ConnectAction(row, col, nrow, ncol);
+    ConnectAction line_fill(int pos, int dir){
+        int npos = pos + dxy[dir];
+        while (field[npos] != -1) {
+            if (field[npos] == field[pos]) {
+                return ConnectAction(pos, npos);
             }
-            assert(field[nrow][ncol] == '0');
-            field[nrow][ncol] = USED;
-            nrow += dx[dir];
-            ncol += dy[dir];
+            assert(field[npos] == 0);
+            field[npos] = USED;
+            npos += dxy[dir];
         }
         assert(false);
     }
 
     vector<ConnectAction> connect(){
         vector<ConnectAction> ret;
-        for (int i = 0; i < N; i++) {
-            for (int j = 0; j < N; j++) {
-                if (field[i][j] != '0' && field[i][j] != 'x') {
-                    for (int dir = 0; dir < 2; dir++) {
-                        auto [x, y] = can_connect(i, j, dir);
-                        if(x == -1) continue;
-                        bool adjust = (abs(x-i) + abs(y-j) == 1);
-                        // bool naname_1 = (abs(x-i) == 1 and abs(y-j) == 1);
-                        bool kabe = ((x==i and (i==0 or i==N-1)) or (y==j and (j==0 or j==N-1)));
-                        if(adjust or kabe) {
-                            ret.push_back(ConnectAction(i, j, x, y));
-                            action_count_limit--;
-                            if (action_count_limit <= 0) {
-                                return ret;
-                            }
+        UnionFind uf(N*N);
+        for(auto &pos : field_list){
+            if (field[pos] != 0 && field[pos] != USED) {
+                for (int dir = 0; dir < 2; dir++) {
+                    int npos = can_connect(pos, dir);
+                    if(npos == -1) continue;
+                    bool is_adjust = (abs(npos - pos) == 1 or abs(npos - pos) == N+2);
+                    bool is_hasi = hasi[npos] & hasi[pos];
+                    if(is_adjust or is_hasi) {
+                        ret.push_back(ConnectAction(pos, npos));
+                        action_count_limit--;
+                        if (action_count_limit <= 0) {
+                            return ret;
                         }
                     }
                 }
             }
         }
+
         return ret;
     }
 
@@ -155,81 +240,25 @@ struct Solver {
         auto connects = connect();
         return Result(moves, connects);
     }
-};
 
-struct UnionFind {
-    map<pair<int,int>, pair<int, int>> parent;
-    UnionFind() :parent() {}
-
-    pair<int, int> find(pair<int, int> x){
-        if (parent.find(x) == parent.end()) {
-            parent[x] = x;
-            return x;
-        } else if (parent[x] == x) {
-            return x;
-        } else {
-            parent[x] = find(parent[x]);
-            return parent[x];
+    void print_answer(const Result &res){
+        cout << res.move.size() << endl;
+        for (auto m : res.move) {
+            auto [x1, y1] = rev_field[m.pos1];
+            auto [x2, y2] = rev_field[m.pos2];
+            cout << x1 << " " << y1 << " "
+                << x2 << " " << y2 << endl;
         }
-    }
-
-    void unite(pair<int, int> x, pair<int, int> y){
-        x = find(x);
-        y = find(y);
-        if (x != y) {
-            parent[x] = y;
+        cout << res.connect.size() << endl;
+        for (auto m : res.connect) {
+            auto [x1, y1] = rev_field[m.pos1];
+            auto [x2, y2] = rev_field[m.pos2];
+            cout << x1 << " " << y1 << " "
+                << x2 << " " << y2 << endl;
         }
     }
 };
 
-int calc_score(int N, vector<string> field, const Result &res){
-    for (auto r : res.move) {
-        assert(field[r.before_row][r.before_col] != '0');
-        assert(field[r.after_row][r.after_col] == '0');
-        swap(field[r.before_row][r.before_col], field[r.after_row][r.after_col]);
-    }
-
-    UnionFind uf;
-    for (auto r : res.connect) {
-        pair<int, int> p1(r.c1_row, r.c1_col), p2(r.c2_row, r.c2_col);
-        uf.unite(p1, p2);
-    }
-
-    vector<pair<int, int>> computers;
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
-            if (field[i][j] != '0') {
-                computers.emplace_back(i, j);
-            }
-        }
-    }
-
-    int score = 0;
-    for (int i = 0; i < (int)computers.size(); i++) {
-        for (int j = i+1; j < (int)computers.size(); j++) {
-            auto c1 = computers[i];
-            auto c2 = computers[j];
-            if (uf.find(c1) == uf.find(c2)) {
-                score += (field[c1.first][c1.second] == field[c2.first][c2.second]) ? 1 : -1;
-            }
-        }
-    }
-
-    return max(score, 0);
-}
-
-void print_answer(const Result &res){
-    cout << res.move.size() << endl;
-    for (auto m : res.move) {
-        cout << m.before_row << " " << m.before_col << " "
-            << m.after_row << " " << m.after_col << endl;
-    }
-    cout << res.connect.size() << endl;
-    for (auto m : res.connect) {
-        cout << m.c1_row << " " << m.c1_col << " "
-            << m.c2_row << " " << m.c2_col << endl;
-    }
-}
 
 
 int main(){
@@ -245,6 +274,6 @@ int main(){
 
     // cerr << "Score = " << calc_score(N, field, ret) << endl;
 
-    print_answer(ret);
+    s.print_answer(ret);
 
 }
