@@ -26,7 +26,9 @@
                 // "a.exe","< in/00%i.txt","> out/00%i.txt &&",
                 // "if %i == 99 python score.py"
 
-                "bash run.sh -J"
+                // "bash -c \"bash run.sh -J\""
+                // "cat run.sh",
+                "bash run.sh -J",
             ],
             "group": {
                 "kind": "build",
