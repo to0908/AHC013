@@ -8,8 +8,7 @@
             "type": "shell",
 
             "command": [
-                // "cd ${fileDirname} &&",
-                // "g++ -std=gnu++1z -I . -O2 -Wall -Wfatal-errors -Wextra -Wl,-stack,0x10000000 ${fileBasename} &&",
+                "g++ -std=gnu++17 -O2 -Wall -Wfatal-errors -Wextra ${fileBasename}",
                 // "g++ calc_score.cpp -o calc_score &&", // calc_scoreのコンパイル
 
                 // "for /l %i in (0,1,9) do",
@@ -28,7 +27,7 @@
 
                 // "bash -c \"bash run.sh -J\""
                 // "cat run.sh",
-                "bash run.sh -J",
+                // "bash run.sh -J",
             ],
             "group": {
                 "kind": "build",

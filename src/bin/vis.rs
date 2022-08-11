@@ -4,6 +4,7 @@ use tools::*;
 pub struct Answer {
     pub n: usize,
     pub k: usize,
+    pub score: i32,
     pub svg: String,
 }
 
@@ -34,7 +35,7 @@ fn main() {
         let input = parse_input(&input);
         let output = parse_output(&input, &output);
 
-        let (_, err, svg) = match output {
+        let (score, err, svg) = match output {
             Ok(output) => vis(&input, &output),
             Err(err) => (0, err, String::new()),
         };
@@ -42,7 +43,7 @@ fn main() {
         if err.len() > 0 {
             println!("{}", err);
         }
-        v.push(Answer {n : input.n.clone(), k : input.k.clone(), svg : svg.clone()});
+        v.push(Answer {n : input.n.clone(), k : input.k.clone(), score : score.clone(), svg : svg.clone()});
 
         let vis = format!("<html><body>{}</body></html>", svg);
         std::fs::write(format!("visualize/{}.html", basename), &vis).unwrap();
@@ -58,7 +59,7 @@ fn main() {
         let l = i * 10;
         let r = std::cmp::min(v.len(), i*10+10);
         for j in l..r {
-            clus = format!("{}seed={}, N={}, K={}<br>{}<br><br>", clus, j, v[j].n, v[j].k, v[j].svg);
+            clus = format!("{}seed={}, N={}, K={}, Score={}<br>{}<br><br>", clus, j, v[j].n, v[j].k, v[j].score, v[j].svg);
         }
         let vis = format!("<html><body>{}</body></html>", clus);
         std::fs::write(format!("visualize/clus_{}.html", i), &vis).unwrap();
