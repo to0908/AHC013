@@ -121,6 +121,7 @@ signed main(int argc, char *argv[]){
     }
 
     double ratio = (double)(K * 100) / (double)(N * N);
+    cout << "N = " << N << endl;
     cout << "K = " << K << endl;
     cout << "Density = " << ratio << endl; 
     

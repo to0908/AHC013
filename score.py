@@ -7,8 +7,9 @@ def getScore(path):
         line = f.readlines()
         if len(line) < 3:
             return -1, -1, -1, -1
-        K = int(line[0].lstrip("K = "))
-        density = float(line[1].lstrip("Density = "))
+        N = int(line[0].lstrip("N = "))
+        K = int(line[1].lstrip("K = "))
+        density = float(line[2].lstrip("Density = "))
 
         score = line[-1]
         if 'Score = ' not in score:
@@ -16,7 +17,7 @@ def getScore(path):
         score = int(score.lstrip("Score = "))
         score_ratio = score / (K * 50 * 99)
 
-    return score, K, density, score_ratio
+    return score, N, K, density, score_ratio
 
 def getCerr(path):
     with open(path) as f:
@@ -34,7 +35,7 @@ if __name__ == '__main__':
     max_score_sum = 0
     result = []
     for i, file in enumerate(files):
-        score, k, density, score_ratio = getScore(os.path.join(dir, file))
+        score, n, k, density, score_ratio = getScore(os.path.join(dir, file))
         time_ms = getCerr(os.path.join(cerr_dir, file))
         if score < 0: 
             continue
@@ -44,7 +45,7 @@ if __name__ == '__main__':
         # print(f"{file}: {score}")
         cnt += 1
 
-        print(f'{file}, Score = {score}, K = {k}, Density = {round(density,3)}, Time = {time_ms}')
+        print(f'{file}, Score = {score}, N = {n}, K = {k}, Density = {round(density,3)}, Time = {time_ms}')
     result = np.array(result)
 
     # print("sum:", sum)

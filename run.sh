@@ -2,7 +2,7 @@
 
 cd `dirname $0`
 g++ -std=gnu++1z -I . -O2 -Wall -Wfatal-errors -Wextra -W main.cpp
-# g++ calc_score.cpp -o calc_score.out
+g++ calc_score.cpp -o calc_score.out
 rm -rf score
 rm -rf out
 rm -rf visualize
