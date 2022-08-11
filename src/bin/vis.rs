@@ -5,6 +5,7 @@ pub struct Answer {
     pub n: usize,
     pub k: usize,
     pub score: i32,
+    pub action_count: usize,
     pub svg: String,
 }
 
@@ -35,15 +36,24 @@ fn main() {
         let input = parse_input(&input);
         let output = parse_output(&input, &output);
 
-        let (score, err, svg) = match output {
+        let (score, err, svg, action_count) = match output {
             Ok(output) => vis(&input, &output),
-            Err(err) => (0, err, String::new()),
+            Err(err) => (0, err, String::new(), 0),
         };
 
         if err.len() > 0 {
             println!("{}", err);
         }
-        v.push(Answer {n : input.n.clone(), k : input.k.clone(), score : score.clone(), svg : svg.clone()});
+
+        let action_count = input.k * 100 - action_count;
+
+        v.push(Answer {
+            n : input.n.clone(), 
+            k : input.k.clone(), 
+            score : score.clone(), 
+            action_count : action_count.clone(),
+            svg : svg.clone()
+        });
 
         let vis = format!("<html><body>{}</body></html>", svg);
         std::fs::write(format!("visualize/{}.html", basename), &vis).unwrap();
@@ -59,11 +69,12 @@ fn main() {
         let l = i * 10;
         let r = std::cmp::min(v.len(), i*10+10);
         for j in l..r {
-            clus = format!("{}seed={}, N={}, K={}, Score={}<br>{}<br><br>", clus, j, v[j].n, v[j].k, v[j].score, v[j].svg);
+            clus = format!("{}seed={}, N={}, K={}, Score={}, Action={} (残り: {})<br>{}<br><br>", 
+                clus, j, v[j].n, v[j].k, v[j].score, v[j].action_count, v[j].k*100 - v[j].action_count, v[j].svg);
         }
         let vis = format!("<html><body>{}</body></html>", clus);
-        std::fs::write(format!("visualize/clus_{}.html", i), &vis).unwrap();
-        index = format!("{}{}", index, format!("<a href=\"./visualize/clus_{}.html\">{}-{}</a>\n", i, l, r));
+        std::fs::write(format!("visualize/seed_{}-{}.html", l, r), &vis).unwrap();
+        index = format!("{}{}", index, format!("<a href=\"./visualize/seed_{}-{}.html\">{0}-{1}</a>\n", l, r));
     }
 
     index = format!("{}{}", index, "</body></html>");

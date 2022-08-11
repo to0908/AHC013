@@ -151,7 +151,8 @@ pub fn parse_output(input: &Input, f: &str) -> Result<Output, String> {
     if output.is_empty() {
         return Err(format!("no output"));
     }
-    Ok(output.remove(0))
+    // Ok(output.remove(0))
+    Ok(output.remove(output.len()-1))
 }
 
 pub struct Outcome {
@@ -485,10 +486,11 @@ fn most_frequent(v: &[usize]) -> usize {
     freq.into_iter().max_by_key(|&(_, count)| count).unwrap().0
 }
 
-pub fn vis(input: &Input, output: &Output) -> (i32, String, String) {
+pub fn vis(input: &Input, output: &Output) -> (i32, String, String, usize) {
     const W: usize = 24;
     const BG_PALETTE: &[&str] = &["#CC0A0A", "#3A0BD6", "#00BFB6", "#73D60B", "#CCBA0C"];
     let (score, error, outcome) = compute_score(input, output);
+    let action_count = output.moves.len() + output.connects.len();
     let mut doc = svg::Document::new()
         .set("id", "vis")
         .set("viewBox", (-5, -5, W * input.n + 10, W * input.n + 10))
@@ -648,7 +650,7 @@ pub fn vis(input: &Input, output: &Output) -> (i32, String, String) {
         }
     }
 
-    (score, error, doc.to_string())
+    (score, error, doc.to_string(), action_count)
 }
 
 #[cfg(target_arch = "wasm32")]
