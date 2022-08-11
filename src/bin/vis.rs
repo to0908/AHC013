@@ -16,7 +16,6 @@ fn main() {
     
     // TODO: 
     // - Kごととかで表示
-    // - 何件かまとめて表示
     
 
     for i in 0..100{
@@ -35,8 +34,6 @@ fn main() {
         let input = parse_input(&input);
         let output = parse_output(&input, &output);
 
-        // println!("{}", input.n);
-
         let (_, err, svg) = match output {
             Ok(output) => vis(&input, &output),
             Err(err) => (0, err, String::new()),
@@ -46,7 +43,7 @@ fn main() {
             println!("{}", err);
         }
         v.push(Answer {n : input.n.clone(), k : input.k.clone(), svg : svg.clone()});
-        // v.push(String::from(svg));
+
         let vis = format!("<html><body>{}</body></html>", svg);
         std::fs::write(format!("visualize/{}.html", basename), &vis).unwrap();
 
