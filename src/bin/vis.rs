@@ -69,8 +69,11 @@ fn main() {
         let l = i * 10;
         let r = std::cmp::min(v.len(), i*10+10);
         for j in l..r {
-            clus = format!("{}seed={}, N={}, K={}, Score={}, Action={} (残り: {})<br>{}<br><br>", 
-                clus, j, v[j].n, v[j].k, v[j].score, v[j].action_count, v[j].k*100 - v[j].action_count, v[j].svg);
+            let max_score = (v[j].k * 50 * 99) as f32;
+            let f_score = v[j].score as f32;
+            let ratio = f_score / max_score;
+            clus = format!("{}seed={}, N={}, K={}, Score={} (ratio: {}), Action={} (残り: {})<br>{}<br><br>", 
+                clus, j, v[j].n, v[j].k, v[j].score, ratio, v[j].action_count, v[j].k*100 - v[j].action_count, v[j].svg);
         }
         let vis = format!("<html><body>{}</body></html>", clus);
         std::fs::write(format!("visualize/seed_{}-{}.html", l, r), &vis).unwrap();

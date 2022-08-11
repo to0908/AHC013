@@ -87,6 +87,7 @@ struct Solver {
     mt19937 engine;
     int field[2500];
     array<int, 2> rev_field[2500];
+    int raw_field[2500];
     bool hasi[2500];
     vector<int> field_list;
 
@@ -98,6 +99,7 @@ struct Solver {
                 field[pos] = field_[i-1][j-1] - '0';
                 field_list.emplace_back(pos);
                 rev_field[pos] = {i-1, j-1};
+                raw_field[pos] = (i-1)*N + j-1;
                 if(i == 1 or i == N or j == 1 or j == N) hasi[pos] = true;
                 else hasi[pos] = false;
             }
@@ -131,7 +133,7 @@ struct Solver {
             int pos1 = r.pos1;
             int pos2 = r.pos2;
             // TODO: ufのこの処理はバグの要因になりそうなのでどうにかする
-            uf.unite(pos1-N-3, pos2-N-3);
+            uf.unite(raw_field[pos1], raw_field[pos2]);
         }
 
         vector<int> computers;
@@ -218,7 +220,7 @@ struct Solver {
                     if(npos == -1) continue;
                     bool is_adjust = (abs(npos - pos) == 1 or abs(npos - pos) == N+2);
                     bool is_hasi = hasi[npos] & hasi[pos];
-                    if(is_adjust or is_hasi) {
+                    if((is_adjust or is_hasi) and uf.unite(raw_field[pos], raw_field[npos])) {
                         ret.push_back(ConnectAction(pos, npos));
                         action_count_limit--;
                         if (action_count_limit <= 0) {
