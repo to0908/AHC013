@@ -45,7 +45,7 @@ fn main() {
             println!("{}", err);
         }
 
-        let action_count = input.k * 100 - action_count;
+        let action_count = action_count;
 
         v.push(Answer {
             n : input.n.clone(), 
