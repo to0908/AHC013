@@ -90,19 +90,21 @@ struct Solver {
         return ret;
     }
 
-    bool can_connect(int row, int col, int dir) const{
+    array<int,2> can_connect(int row, int col, int dir) const{
+        // can connect -> return {x, y}
+        // cannot -> return {-1, -1}
         int nrow = row + dx[dir];
         int ncol = col + dy[dir];
         while (0 <= nrow && nrow < N && 0 <= ncol && ncol < N) {
             if (field[nrow][ncol] == field[row][col]) {
-                return true;
+                return {nrow, ncol};
             } else if (field[nrow][ncol] != '0') {
-                return false;
+                return {-1, -1};
             }
             nrow += dx[dir];
             ncol += dy[dir];
         }
-        return false;
+        return {-1, -1};
     }
 
     ConnectAction line_fill(int row, int col, int dir){
@@ -126,8 +128,13 @@ struct Solver {
             for (int j = 0; j < N; j++) {
                 if (field[i][j] != '0' && field[i][j] != 'x') {
                     for (int dir = 0; dir < 2; dir++) {
-                        if (can_connect(i, j, dir)) {
-                            ret.push_back(line_fill(i, j, dir));
+                        auto [x, y] = can_connect(i, j, dir);
+                        if(x == -1) continue;
+                        bool adjust = (abs(x-i) + abs(y-j) == 1);
+                        // bool naname_1 = (abs(x-i) == 1 and abs(y-j) == 1);
+                        bool kabe = ((x==i and (i==0 or i==N-1)) or (y==j and (j==0 or j==N-1)));
+                        if(adjust or kabe) {
+                            ret.push_back(ConnectAction(i, j, x, y));
                             action_count_limit--;
                             if (action_count_limit <= 0) {
                                 return ret;
@@ -142,7 +149,8 @@ struct Solver {
 
     Result solve(){
         // create random moves
-        auto moves = move();
+        auto moves = move(0);
+
         // from each computer, connect to right and/or bottom if it will reach the same type
         auto connects = connect();
         return Result(moves, connects);
