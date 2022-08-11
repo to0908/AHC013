@@ -62,14 +62,12 @@ class UnionFind{
 
 struct MoveAction {
     int pos1, pos2;
-    MoveAction(int pos1, int pos2) : 
-        pos1(pos1), pos2(pos2) {}
+    MoveAction(int pos1, int pos2) : pos1(pos1), pos2(pos2) {}
 };
 
 struct ConnectAction {
     int pos1, pos2;
-    ConnectAction(int pos1, int pos2) : 
-        pos1(pos1), pos2(pos2) {}
+    ConnectAction(int pos1, int pos2) : pos1(pos1), pos2(pos2) {}
 };
 
 struct Result {
@@ -90,13 +88,23 @@ struct Solver {
     int raw_field[2500];
     bool hasi[2500];
     vector<int> field_list;
+    int server_pos[5][100];
+    vector<int> empty_pos;
 
     Solver(int N, int K, const vector<string> &field_, int seed = 0) : 
         N(N), K(K), action_count_limit(K * 100){
+        int cnt[K] = {};
         for(int i=1;i<=N;i++){
             for(int j=1;j<=N;j++){
                 int pos = i*(N+2)+j;
                 field[pos] = field_[i-1][j-1] - '0';
+                if(field[pos] != 0) {
+                    server_pos[field[pos]-1][cnt[field[pos]-1]] = pos;
+                    cnt[field[pos]-1]++;
+                }
+                else{
+                    empty_pos.emplace_back(pos);
+                }
                 field_list.emplace_back(pos);
                 rev_field[pos] = {i-1, j-1};
                 raw_field[pos] = (i-1)*N + j-1;
@@ -112,7 +120,6 @@ struct Solver {
             }
         }
         // RDLU
-        // dxy = {1, N+2, -1, -N-2};
         dxy[0] = 1;
         dxy[1] = N+2;
         dxy[2] = -1;
@@ -132,7 +139,6 @@ struct Solver {
         for (auto r : res.connect) {
             int pos1 = r.pos1;
             int pos2 = r.pos2;
-            // TODO: ufのこの処理はバグの要因になりそうなのでどうにかする
             uf.unite(raw_field[pos1], raw_field[pos2]);
         }
 
@@ -197,6 +203,16 @@ struct Solver {
         return -1;
     }
 
+    int get_server(int pos, int dir) {
+        int npos = pos + dxy[dir];
+        while (field[npos] != -1) {
+            if(field[npos] == USED) return -1;
+            if(field[npos] != 0) return field[npos];
+            npos += dxy[dir];
+        }
+        return -1;
+    }
+
     ConnectAction line_fill(int pos, int dir){
         int npos = pos + dxy[dir];
         while (field[npos] != -1) {
@@ -211,10 +227,13 @@ struct Solver {
     }
 
     vector<ConnectAction> connect(){
+        /*
+        無害なConnectだけをやっている
+        */
         vector<ConnectAction> ret;
         UnionFind uf(N*N);
-        for(auto &pos : field_list){
-            if (field[pos] != 0 && field[pos] != USED) {
+        for(int i=0;i<K;i++){
+            for(auto pos : server_pos[i]){
                 for (int dir = 0; dir < 2; dir++) {
                     int npos = can_connect(pos, dir);
                     if(npos == -1) continue;
@@ -226,10 +245,37 @@ struct Solver {
                         if (action_count_limit <= 0) {
                             return ret;
                         }
+                        continue;
+                    }
+
+                    bool is_only_this_pair = true;
+                    int now = pos + dxy[dir];
+                    while(now != npos) {
+                        int x = get_server(now, (dir+1)%4);
+                        int y = get_server(now, (dir+3)%4);
+                        if(x != -1 and x == y) {
+                            is_only_this_pair = false;
+                            break;
+                        }
+                        now += dxy[dir];
+                    }
+                    if(is_only_this_pair and uf.unite(raw_field[pos], raw_field[npos])) {
+                        ret.push_back(line_fill(pos, dir));
+                        action_count_limit--;
+                        if (action_count_limit <= 0) {
+                            return ret;
+                        }
                     }
                 }
             }
         }
+
+
+
+        // TODO:
+        // ここで回数がoverする時は最後までやって得られるScoreが小さいものを分解していくみたいな感じが良いか
+        // 分解する際にも、いきなり真ん中で割るとスコアが大きく下がってしまう。端の方から分解するのが良い。
+
 
         return ret;
     }
@@ -264,6 +310,9 @@ struct Solver {
 
 
 int main(){
+
+    Timer time;
+
     int N, K;
     cin >> N >> K;
     vector<string> field(N);
@@ -274,8 +323,6 @@ int main(){
     Solver s(N, K, field);
     auto ret = s.solve();
 
-    // cerr << "Score = " << calc_score(N, field, ret) << endl;
-
     s.print_answer(ret);
-
+    cerr << "Time = " << time.elapsed() << endl;
 }
