@@ -2,6 +2,8 @@ use tools::*;
 
 fn main() {
 
+    let mut doc = "".to_string();
+
     for i in 0..100{
         let in_file = format!("in/{:>04}.txt", i);
         let out_file = format!("out/{:>04}.txt", i);
@@ -28,5 +30,10 @@ fn main() {
         }
         let vis = format!("<html><body>{}</body></html>", svg);
         std::fs::write(format!("visualize/{}.html", basename), &vis).unwrap();
+
+        doc = format!("{}{}", doc, format!("<a href=\"./visualize/{}.html\">{}</a>\n", basename, basename))
     }
+
+    let index = format!("<html><body>{}</body></html>", doc);
+    std::fs::write("index.html", &index).unwrap();
 }
