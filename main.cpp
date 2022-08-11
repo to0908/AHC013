@@ -102,7 +102,7 @@ struct Solver {
                 else hasi[pos] = false;
             }
             field[i*(N+2)] = -1;
-            field[i*(N+3)-1] = -1;
+            field[(i+1)*(N+2)-1] = -1;
         }
         for(int i=0;i<N+2;i+=N+1){
             for(int j=0;j<N+2;j++){
