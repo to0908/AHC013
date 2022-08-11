@@ -18,15 +18,24 @@ def getScore(path):
 
     return score, K, density, score_ratio
 
+def getCerr(path):
+    with open(path) as f:
+        line = f.readlines()
+        if len(line) == 0:
+            return -1
+        time_ms = int(line[0].lstrip("Time = "))
+    return time_ms
+
 if __name__ == '__main__':
     dir = 'score'
+    cerr_dir = 'cerr'
     files = os.listdir(dir)
     sum, cnt = 0, 0
     max_score_sum = 0
     result = []
     for i, file in enumerate(files):
-        path = os.path.join(dir, file)
-        score, k, density, score_ratio = getScore(path)
+        score, k, density, score_ratio = getScore(os.path.join(dir, file))
+        time_ms = getCerr(os.path.join(cerr_dir, file))
         if score < 0: 
             continue
         result.append(np.array([score, k, density, score_ratio]))
@@ -34,6 +43,8 @@ if __name__ == '__main__':
         max_score_sum += k * 50 * 99
         # print(f"{file}: {score}")
         cnt += 1
+
+        print(f'{file}, Score = {score}, K = {k}, Density = {round(density,3)}, Time = {time_ms}')
     result = np.array(result)
 
     # print("sum:", sum)
