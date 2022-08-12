@@ -89,6 +89,7 @@ struct BaseSolver {
     bool hasi[2500];
     vector<int> field_list;
     int server_pos[5][100];
+    vector<int> empty_pos;
 
     BaseSolver(int N, int K, const vector<string> &field_) : 
         N(N), K(K), action_count_limit(K * 100){
@@ -100,6 +101,9 @@ struct BaseSolver {
                 if(field[pos] != 0) {
                     server_pos[field[pos]-1][cnt[field[pos]-1]] = pos;
                     cnt[field[pos]-1]++;
+                }
+                else {
+                    empty_pos.emplace_back(pos);
                 }
                 field_list.emplace_back(pos);
                 rev_field[pos] = {i-1, j-1};
@@ -198,14 +202,13 @@ struct BaseSolver {
         return -1;
     }
 
-    int get_server(int pos, int dir) {
+    int get_server_pos(int pos, int dir) {
         int npos = pos + dxy[dir];
         while (field[npos] != -1) {
-            if(field[npos] == USED) return -1;
-            if(field[npos] != 0) return field[npos];
+            if(field[npos] != 0) return npos;
             npos += dxy[dir];
         }
-        return -1;
+        return npos - dxy[dir];
     }
 
     ConnectAction line_fill(int pos, int dir){
@@ -227,6 +230,18 @@ struct BaseSolver {
         */
         vector<ConnectAction> ret;
         UnionFind uf(N*N);
+        array<int,2> vertical_server_pair[2][2500]={};
+        for(int dir=0;dir<2;dir++){
+            for(auto &pos : empty_pos) {
+                if(vertical_server_pair[dir][raw_field[pos]][0] != 0) continue;
+                int x = get_server_pos(pos, dir+1);
+                int y = get_server_pos(pos, dir?0:3);
+                int d = dir?dxy[0]:dxy[1];
+                for(int npos=min(x, y); npos <= max(x, y); npos += d){
+                    vertical_server_pair[dir][raw_field[npos]] = {x, y};
+                }
+            }
+        }
         for(int i=0;i<K;i++){
             for(auto pos : server_pos[i]){
                 for (int dir = 0; dir < 2; dir++) {
@@ -246,9 +261,10 @@ struct BaseSolver {
                     bool is_only_this_pair = true;
                     int now = pos + dxy[dir];
                     while(now != npos) {
-                        int x = get_server(now, (dir+1)%4);
-                        int y = get_server(now, (dir+3)%4);
-                        if(x != -1 and x == y and !uf.same(x, y)) {
+                        auto [x, y] = vertical_server_pair[dir][now];
+                        x = field[x];
+                        y = field[y];
+                        if(x != 0 and x == y and !uf.same(x, y)) {
                             is_only_this_pair = false;
                             break;
                         }
@@ -302,15 +318,8 @@ struct BaseSolver {
 
 
 struct DenseSolver : public BaseSolver{
-    vector<int> empty_pos;
 
-    DenseSolver(int N, int K, const vector<string> &field_) : BaseSolver(N, K, field_) {
-        for(auto pos : field_list){
-            if(field[pos] == 0) {
-                empty_pos.emplace_back(pos);
-            }
-        }
-    }
+    DenseSolver(int N, int K, const vector<string> &field_) : BaseSolver(N, K, field_) {}
 
     Result solve(){
         // create random moves
