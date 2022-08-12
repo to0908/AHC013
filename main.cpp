@@ -634,6 +634,7 @@ int main(){
         s.print_answer(ret);
     }
     else{
+        cerr << "Solver: Base" << "\n";
         BaseSolver s(N, K, field);
         auto ret = s.base_solve();
         s.print_answer(ret);
