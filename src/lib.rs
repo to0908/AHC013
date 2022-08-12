@@ -486,11 +486,12 @@ fn most_frequent(v: &[usize]) -> usize {
     freq.into_iter().max_by_key(|&(_, count)| count).unwrap().0
 }
 
-pub fn vis(input: &Input, output: &Output) -> (i32, String, String, usize) {
+pub fn vis(input: &Input, output: &Output) -> (i32, String, String, usize, usize) {
     const W: usize = 24;
     const BG_PALETTE: &[&str] = &["#CC0A0A", "#3A0BD6", "#00BFB6", "#73D60B", "#CCBA0C"];
     let (score, error, outcome) = compute_score(input, output);
-    let action_count = output.moves.len() + output.connects.len();
+    let move_count = output.moves.len();
+    let connect_count = output.connects.len();
     let mut doc = svg::Document::new()
         .set("id", "vis")
         .set("viewBox", (-5, -5, W * input.n + 10, W * input.n + 10))
@@ -650,7 +651,7 @@ pub fn vis(input: &Input, output: &Output) -> (i32, String, String, usize) {
         }
     }
 
-    (score, error, doc.to_string(), action_count)
+    (score, error, doc.to_string(), move_count, connect_count)
 }
 
 #[cfg(target_arch = "wasm32")]

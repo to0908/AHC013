@@ -6,7 +6,8 @@ pub struct Answer {
     pub k: usize,
     pub seed: i32, 
     pub score: i32,
-    pub action_count: usize,
+    pub move_count: usize,
+    pub connect_count: usize,
     pub svg: String
 }
 
@@ -44,23 +45,23 @@ fn main() {
         let input = parse_input(&input);
         let output = parse_output(&input, &output);
 
-        let (score, err, svg, action_count) = match output {
+        let (score, err, svg, move_count, connect_count) = match output {
             Ok(output) => vis(&input, &output),
-            Err(err) => (0, err, String::new(), 0),
+            Err(err) => (0, err, String::new(), 0, 0),
         };
 
         if err.len() > 0 {
             println!("{}", err);
         }
 
-        let action_count = action_count;
 
         v.push(Answer {
             n : input.n.clone(), 
             k : input.k.clone(), 
             seed: i.clone(),
             score : score.clone(), 
-            action_count : action_count.clone(),
+            move_count : move_count.clone(),
+            connect_count : connect_count.clone(),
             svg : svg.clone()
         });
 
@@ -70,7 +71,8 @@ fn main() {
                 k : input.k.clone(), 
                 seed: i.clone(),
                 score : score.clone(), 
-                action_count : action_count.clone(),
+                move_count : move_count.clone(),
+                connect_count : connect_count.clone(),
                 svg : svg.clone()
             });
         }
@@ -93,8 +95,11 @@ fn main() {
             let max_score = (v[j].k * 50 * 99) as f32;
             let f_score = v[j].score as f32;
             let ratio = f_score / max_score;
-            clus = format!("{}seed={}, N={}, K={}, Score={} (ratio: {}), Action={} (残り: {})<br>{}<br><br>", 
-                clus, v[j].seed, v[j].n, v[j].k, v[j].score, ratio, v[j].action_count, v[j].k*100 - v[j].action_count, v[j].svg);
+            let action_count = v[j].move_count + v[j].connect_count;
+            let density = (v[j].k * 100) as f32 / (v[j].n * v[j].n) as f32;
+            clus = format!("{}seed={}, N={}, K={}, Density={}, Score={} (ratio: {}), Action={} (残り: {}, Move={}, Connect={})<br>{}<br><br>", 
+                clus, v[j].seed, v[j].n, v[j].k, density, v[j].score, ratio, 
+                action_count, v[j].k*100 - action_count, v[j].move_count, v[j].connect_count, v[j].svg);
         }
         let vis = format!("<html><body>{}</body></html>", clus);
         std::fs::write(format!("visualize/seed_{}-{}.html", l, r), &vis).unwrap();
@@ -102,6 +107,8 @@ fn main() {
     }
 
     index = format!("{}<br><br>Dense Solver<br>", index);
+
+    // これ関数化したい気持ちがあるぜ！
     let sz2 = dense_v.len() / 10;
     for i in 0..sz2 {
         let mut clus = "".to_string();
@@ -111,9 +118,11 @@ fn main() {
             let max_score = (dense_v[j].k * 50 * 99) as f32;
             let f_score = dense_v[j].score as f32;
             let ratio = f_score / max_score;
-            clus = format!("{}seed={}, N={}, K={}, Score={} (ratio: {}), Action={} (残り: {})<br>{}<br><br>", 
-                clus, dense_v[j].seed, dense_v[j].n, dense_v[j].k, dense_v[j].score, ratio, 
-                dense_v[j].action_count, dense_v[j].k*100 - dense_v[j].action_count, dense_v[j].svg);
+            let action_count = dense_v[j].move_count + dense_v[j].connect_count;
+            let density = (dense_v[j].k * 100) as f32 / (dense_v[j].n * dense_v[j].n) as f32;
+            clus = format!("{}seed={}, N={}, K={}, Density={}, Score={} (ratio: {}), Action={} (残り: {}, Move={}, Connect={})<br>{}<br><br>", 
+                clus, dense_v[j].seed, dense_v[j].n, dense_v[j].k, density, dense_v[j].score, ratio, 
+                action_count, dense_v[j].k*100 - action_count, dense_v[j].move_count, dense_v[j].connect_count, dense_v[j].svg);
         }
         let vis = format!("<html><body>{}</body></html>", clus);
         std::fs::write(format!("visualize/dense_{}-{}.html", l, r), &vis).unwrap();

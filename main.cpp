@@ -627,7 +627,8 @@ int main(){
         cin >> field[i];
     }
 
-    if(N*N - K * 100 < 150) {
+    double density = double(K*100) / double(N*N);
+    if(density >= 0.6) {
         cerr << "Solver: Dense" << "\n";
         DenseSolver s(N, K, field);
         auto ret = s.solve();
