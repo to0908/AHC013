@@ -230,7 +230,8 @@ struct BaseSolver {
         */
         vector<ConnectAction> ret;
         UnionFind uf(N*N);
-        array<int,2> vertical_server_pair[2][2500]={};
+        array<int,2> vertical_server_pair[2][2305]={};
+        // 前計算
         for(int dir=0;dir<2;dir++){
             for(auto &pos : empty_pos) {
                 if(vertical_server_pair[dir][raw_field[pos]][0] != 0) continue;
@@ -242,6 +243,8 @@ struct BaseSolver {
                 }
             }
         }
+
+        // 無害な連結
         for(int i=0;i<K;i++){
             for(auto pos : server_pos[i]){
                 for (int dir = 0; dir < 2; dir++) {
@@ -261,10 +264,9 @@ struct BaseSolver {
                     bool is_only_this_pair = true;
                     int now = pos + dxy[dir];
                     while(now != npos) {
-                        auto [x, y] = vertical_server_pair[dir][now];
-                        x = field[x];
-                        y = field[y];
-                        if(x != 0 and x == y and !uf.same(x, y)) {
+                        auto [pos_x, pos_y] = vertical_server_pair[dir][now];
+                        int x = field[pos_x], y = field[pos_y];
+                        if(x != 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
                             is_only_this_pair = false;
                             break;
                         }
@@ -276,6 +278,70 @@ struct BaseSolver {
                         if (action_count_limit <= 0) {
                             return ret;
                         }
+                    }
+                }
+            }
+        }
+
+        // 貪欲に最も無害なのを繋げる (多分無害？わからんぜ)
+        if(1){
+            while(true){
+                bool connected = false;
+                for(int i=0;i<K;i++){
+                    for(auto pos : server_pos[i]){
+                        for (int dir = 0; dir < 2; dir++) {
+                            int npos = can_connect(pos, dir);
+                            if(npos == -1) continue;
+                            if(uf.same(raw_field[pos], raw_field[npos])) continue;
+                            int sz1 = uf.size(raw_field[pos]), sz2 = uf.size(raw_field[npos]);
+                            int score = sz1 * sz2;
+                            int now = pos + dxy[dir];
+                            while(now != npos) {
+                                auto [pos_x, pos_y] = vertical_server_pair[dir][raw_field[now]];
+                                int x = field[pos_x], y = field[pos_y];
+                                if(x != 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
+                                    score -= uf.size(raw_field[pos_x]) * uf.size(raw_field[pos_y]);
+                                }
+                                now += dxy[dir];
+                            }
+                            if(score > 0 and uf.unite(raw_field[pos], raw_field[npos])) {
+                                connected=true;
+                                ret.push_back(line_fill(pos, dir));
+                                action_count_limit--;
+                                if (action_count_limit <= 0) {
+                                    return ret;
+                                }
+                            }
+                        }
+                    }
+                }
+                if(!connected) break;
+            }
+        }
+
+        // 貪欲にスコアが高いものから連結 (有害)
+        if(1){
+            vector<array<int, 4>> edge;
+            for(int i=0;i<K;i++){
+                for(auto pos : server_pos[i]){
+                    for (int dir = 0; dir < 2; dir++) {
+                        int npos = can_connect(pos, dir);
+                        if(npos == -1) continue;
+                        if(uf.same(raw_field[pos], raw_field[npos])) continue;
+                        int sz1 = uf.size(raw_field[pos]), sz2 = uf.size(raw_field[npos]);
+                        int score = sz1 * sz2;
+                        edge.push_back({score, dir, pos, npos});
+                    }
+                }
+            }
+            sort(all(edge), greater<array<int,4>>());
+            for(auto &[score, dir, pos, npos] : edge){
+                if(npos != can_connect(pos, dir)) continue;
+                if(uf.unite(raw_field[pos], raw_field[npos])){
+                    ret.push_back(line_fill(pos, dir));
+                    action_count_limit--;
+                    if (action_count_limit <= 0) {
+                        return ret;
                     }
                 }
             }
