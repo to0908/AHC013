@@ -25,7 +25,11 @@ def getCerr(path):
         if len(line) == 0:
             return -1
         time_ms = int(line[-1].lstrip("Time = "))
-    return time_ms
+        if 'Connect' not in line[-2]:
+            connect_time_ms = -1
+        else:
+            connect_time_ms = int(line[-2].lstrip("Connect Time = "))
+    return time_ms, connect_time_ms
 
 if __name__ == '__main__':
     dir = 'score'
@@ -34,9 +38,12 @@ if __name__ == '__main__':
     sum, cnt = 0, 0
     max_score_sum = 0
     result = []
+    max_time = -1
+
     for i, file in enumerate(files):
         score, n, k, density, score_ratio = getScore(os.path.join(dir, file))
-        time_ms = getCerr(os.path.join(cerr_dir, file))
+        time_ms, connect_time_ms = getCerr(os.path.join(cerr_dir, file))
+        max_time = max(max_time, time_ms)
         if score < 0: 
             continue
         result.append(np.array([score, k, density, score_ratio]))
@@ -45,7 +52,8 @@ if __name__ == '__main__':
         # print(f"{file}: {score}")
         cnt += 1
 
-        print(f'{file}, Score = {score}, N = {n}, K = {k}, Density = {round(density,3)}, Time = {time_ms}')
+        print(f'{file}, Score = {score}, N = {n}, K = {k}, Density = {round(density,3)}, Time = {time_ms}, Connect Time = {connect_time_ms}')
+    
     result = np.array(result)
 
     # print("sum:", sum)
@@ -56,6 +64,7 @@ if __name__ == '__main__':
     print("Estimated 50 case MAXIMUM score:", '{:_}'.format(max_score_sum * 50 / cnt))
     corr = np.corrcoef(result[:, 2], result[:, 0])[0, 1]
     print('Correlation of Score & Server Density', corr)
+    print(f'Max Time = {max_time}')
     # print('Max Score :', '{:_}'.format(10**8))
     # print("density:", (sum / cnt) / 10**6)
 
