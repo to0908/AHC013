@@ -78,11 +78,11 @@ struct Result {
 
 struct BaseSolver {
     static constexpr int USED = 9;
+    const int TIME_LIMIT = 2800;
     int dxy[4];
 
     int N, K;
     int action_count_limit;
-    mt19937 engine;
     int field[2500];
     array<int, 2> rev_field[2500];
     int raw_field[2500];
@@ -90,7 +90,7 @@ struct BaseSolver {
     vector<int> field_list;
     int server_pos[5][100];
 
-    BaseSolver(int N, int K, const vector<string> &field_, int seed = 0) : 
+    BaseSolver(int N, int K, const vector<string> &field_) : 
         N(N), K(K), action_count_limit(K * 100){
         int cnt[K] = {};
         for(int i=1;i<=N;i++){
@@ -120,7 +120,6 @@ struct BaseSolver {
         dxy[1] = N+2;
         dxy[2] = -1;
         dxy[3] = -N-2;
-        engine.seed(seed);
     }
 
     int calc_score(const Result &res){
@@ -249,7 +248,7 @@ struct BaseSolver {
                     while(now != npos) {
                         int x = get_server(now, (dir+1)%4);
                         int y = get_server(now, (dir+3)%4);
-                        if(x != -1 and x == y) {
+                        if(x != -1 and x == y and !uf.same(x, y)) {
                             is_only_this_pair = false;
                             break;
                         }
@@ -305,7 +304,7 @@ struct BaseSolver {
 struct DenseSolver : public BaseSolver{
     vector<int> empty_pos;
 
-    DenseSolver(int N, int K, const vector<string> &field_, int seed = 0) : BaseSolver(N, K, field_, seed) {
+    DenseSolver(int N, int K, const vector<string> &field_) : BaseSolver(N, K, field_) {
         for(auto pos : field_list){
             if(field[pos] == 0) {
                 empty_pos.emplace_back(pos);
