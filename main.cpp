@@ -83,16 +83,18 @@ struct BaseSolver {
 
     int N, K;
     int _action_count_limit;
-    array<int, 2> rev_field[2500];
-    int raw_field[2500];
+    array<int, 2> rev_field[2500]; // (N+2)**2 cells -> N*N cells (x, y)
+    int raw_field[2500]; // (N+2)**2 cells pos -> N*N cells pos
     bool hasi[2500];
-    vector<int> field_list;
+    vector<int> field_list; // inner field list (N*N cells)
     Timer time;
 
-    int field[2500];
-    vector<int> server_pos;
-    int field_server_id[2500];
-    vector<int> empty_pos;
+    int field[2500]; // field[pos] := -1/0/server
+    vector<int> server_pos; // server_pos[server_id] := pos
+    int field_server_id[2500]; // field_server_id[pos] := -1/server_id
+    int field_empty_id[2500]; // field_empty_id[pos] := -1/empty_id
+    vector<int> empty_pos; // empty_pos[empty_id] := pos
+    array<int,2> vertical_server_pair[2][2500]; // [dir(0/1)][pos] := {pos1, pos2} (empty or server)
 
     BaseSolver(int N, int K, const vector<string> &field_, Timer &time) : 
         N(N), K(K), _action_count_limit(K * 100), time(time){
@@ -105,9 +107,11 @@ struct BaseSolver {
                 if(field[pos] != 0) {
                     server_pos[cnt] = pos;
                     field_server_id[pos] = cnt;
+                    field_empty_id[pos] = -1;
                     cnt++;
                 }
                 else {
+                    field_empty_id[pos] = empty_pos.size();
                     empty_pos.emplace_back(pos);
                     field_server_id[pos] = -1;
                 }
@@ -134,11 +138,53 @@ struct BaseSolver {
         dxy[1] = N+2;
         dxy[2] = -1;
         dxy[3] = -N-2;
+
+        for(int i=0;i<2;i++)for(int j=0;j<2500;j++)vertical_server_pair[i][j] = {0, 0};
+
+        for(int dir=0;dir<2;dir++){
+            for(auto &pos : empty_pos) {
+                if(vertical_server_pair[dir][pos][0] != 0) continue;
+                // 常にindexが(min, max)になるようにしておく
+                update_vertical_info(pos, dir);
+            }
+        }
     }
 
     bool can_move(int pos, int dir) const{
         int npos = pos + dxy[dir];
         return field[npos] == 0;
+    }
+
+    void empty_move_operation(int emp_id, int npos){
+        int pos = empty_pos[emp_id];
+        assert(field[npos] > 0 and field[npos] <= K);
+        assert(field[pos] == 0);
+        assert(field_server_id[pos] == -1);
+        assert(field_server_id[npos] >= 0);
+        assert(field_server_id[npos] < K*100);
+
+        swap(field[pos], field[npos]);
+        swap(field_server_id[pos], field_server_id[npos]);
+        swap(field_empty_id[pos], field_empty_id[npos]);
+        empty_pos[emp_id] = npos;
+        server_pos[field_server_id[pos]] = pos;
+
+        assert(field_server_id[pos] >= 0);
+        assert(field_server_id[npos] == -1);
+        // server
+        for(int dir=0;dir<4;dir++){
+            int nx = pos + dxy[dir];
+            while(field[nx] == 0) {
+                // RDLU
+                // 0101
+                vertical_server_pair[(dir&1)^1][nx][(dir<=1)?0:1] = pos;
+                nx += dxy[dir];
+            }
+        }
+        // empty
+        for(int dir=0;dir<2;dir++){
+            update_vertical_info(npos, dir);
+        }
     }
 
     vector<MoveAction> base_move(int move_limit = -1){
@@ -205,19 +251,7 @@ struct BaseSolver {
         Timer time;
         vector<ConnectAction> ret;
         UnionFind uf(N*N);
-        array<int,2> vertical_server_pair[2][2305]={};
-        // 前計算
-        for(int dir=0;dir<2;dir++){
-            for(auto &pos : empty_pos) {
-                if(vertical_server_pair[dir][raw_field[pos]][0] != 0) continue;
-                int x = get_server_pos(pos, dir+1);
-                int y = get_server_pos(pos, dir?0:3);
-                int d = dir?dxy[0]:dxy[1];
-                for(int npos=min(x, y); npos <= max(x, y); npos += d){
-                    vertical_server_pair[dir][raw_field[npos]] = {x, y};
-                }
-            }
-        }
+
 
         // 無害な連結
         for(auto pos : server_pos){
@@ -235,7 +269,8 @@ struct BaseSolver {
                 bool is_only_this_pair = true;
                 int now = pos + dxy[dir];
                 while(now != npos) {
-                    auto [pos_x, pos_y] = vertical_server_pair[dir][raw_field[now]];
+                    assert(field[now] == 0);
+                    auto [pos_x, pos_y] = vertical_server_pair[dir][now];
                     int x = field[pos_x], y = field[pos_y];
                     if(x > 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
                         is_only_this_pair = false;
@@ -263,7 +298,7 @@ struct BaseSolver {
                         int score = sz1 * sz2;
                         int now = pos + dxy[dir];
                         while(now != npos) {
-                            auto [pos_x, pos_y] = vertical_server_pair[dir][raw_field[now]];
+                            auto [pos_x, pos_y] = vertical_server_pair[dir][now];
                             int x = field[pos_x], y = field[pos_y];
                             if(x != 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
                                 score -= uf.size(raw_field[pos_x]) * uf.size(raw_field[pos_y]);
@@ -366,62 +401,13 @@ struct BaseSolver {
         return ret;
     }
 
-
-    Result base_solve(){
-        // create random moves
-        auto moves = base_move(0);
-        int action_count_limit = _action_count_limit - (int)moves.size();
-        // from each computer, connect to right and/or bottom if it will reach the same type
-        auto connects = base_connect(action_count_limit);
-        return Result(moves, connects);
-    }
-
-    void print_answer(const Result &res){
-        cout << res.move.size() << "\n";
-        for (auto m : res.move) {
-            auto [x1, y1] = rev_field[m.pos1];
-            auto [x2, y2] = rev_field[m.pos2];
-            cout << x1 << " " << y1 << " "
-                << x2 << " " << y2 << "\n";
-        }
-        cout << res.connect.size() << "\n";
-        for (auto m : res.connect) {
-            auto [x1, y1] = rev_field[m.pos1];
-            auto [x2, y2] = rev_field[m.pos2];
-            cout << x1 << " " << y1 << " "
-                << x2 << " " << y2 << "\n";
-        }
-    }
-};
-
-
-struct DenseSolver : public BaseSolver{
-
-    DenseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
-
     int calc_connect_score(int action_count_limit){
-        /*
-        無害なConnectだけをやっている
-        */
         int score = 0;
         UnionFind uf(N*N);
-        array<int,2> vertical_server_pair[2][2305]={};
         vector<int> used;
 
-        // 前計算
-        for(int dir=0;dir<2;dir++){
-            for(auto &pos : empty_pos) {
-                if(vertical_server_pair[dir][raw_field[pos]][0] != 0) continue;
-                int x = get_server_pos(pos, dir+1);
-                int y = get_server_pos(pos, dir?0:3);
-                int d = dir?dxy[0]:dxy[1];
-                for(int npos=min(x, y); npos <= max(x, y); npos += d){
-                    vertical_server_pair[dir][raw_field[npos]] = {x, y};
-                }
-            }
-        }
-
         // 無害な連結
+
         for(auto pos : server_pos){
             for (int dir = 0; dir < 2; dir++) {
                 int npos = can_connect(pos, dir);
@@ -439,7 +425,7 @@ struct DenseSolver : public BaseSolver{
                 bool is_only_this_pair = true;
                 int now = pos + dxy[dir];
                 while(now != npos) {
-                    auto [pos_x, pos_y] = vertical_server_pair[dir][raw_field[now]];
+                    auto [pos_x, pos_y] = vertical_server_pair[dir][now];
                     int x = field[pos_x], y = field[pos_y];
                     if(x > 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
                         is_only_this_pair = false;
@@ -474,7 +460,7 @@ struct DenseSolver : public BaseSolver{
                         int score2 = sz1 * sz2;
                         int now = pos + dxy[dir];
                         while(now != npos) {
-                            auto [pos_x, pos_y] = vertical_server_pair[dir][raw_field[now]];
+                            auto [pos_x, pos_y] = vertical_server_pair[dir][now];
                             int x = field[pos_x], y = field[pos_y];
                             if(x != 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
                                 score2 -= uf.size(raw_field[pos_x]) * uf.size(raw_field[pos_y]);
@@ -498,6 +484,7 @@ struct DenseSolver : public BaseSolver{
                 if(!connected) break;
             }
         }
+
 
         // 貪欲にスコアが高いものから連結 (有害)
         if(1){
@@ -547,25 +534,67 @@ struct DenseSolver : public BaseSolver{
             }
         }
         for(auto i:used) field[i] = 0;
+
         return score;
     }
 
-    void empty_move_operation(int emp_idx, int npos){
-        int pos = empty_pos[emp_idx];
-        assert(field[npos] > 0 and field[npos] <= K);
-        assert(field[pos] == 0);
-        assert(field_server_id[pos] == -1);
-        assert(field_server_id[npos] >= 0);
-        assert(field_server_id[npos] < K*100);
-
-        swap(field[pos], field[npos]);
-        swap(field_server_id[pos], field_server_id[npos]);
-        empty_pos[emp_idx] = npos;
-        
-        assert(field_server_id[pos] >= 0);
-        assert(field_server_id[npos] == -1);
-        server_pos[field_server_id[pos]] = pos;
+    Result base_solve(){
+        // create random moves
+        auto moves = base_move(0);
+        int action_count_limit = _action_count_limit - (int)moves.size();
+        // from each computer, connect to right and/or bottom if it will reach the same type
+        auto connects = base_connect(action_count_limit);
+        return Result(moves, connects);
     }
+
+    void print_answer(const Result &res){
+        cout << res.move.size() << "\n";
+        for (auto m : res.move) {
+            auto [x1, y1] = rev_field[m.pos1];
+            auto [x2, y2] = rev_field[m.pos2];
+            cout << x1 << " " << y1 << " "
+                << x2 << " " << y2 << "\n";
+        }
+        cout << res.connect.size() << "\n";
+        for (auto m : res.connect) {
+            auto [x1, y1] = rev_field[m.pos1];
+            auto [x2, y2] = rev_field[m.pos2];
+            cout << x1 << " " << y1 << " "
+                << x2 << " " << y2 << "\n";
+        }
+    }
+
+private:
+    void update_vertical_info(int pos, int dir){
+        if(dir == 0) {
+            int x = get_server_pos(pos, 3);
+            int y = get_server_pos(pos, 1);
+            int d = dxy[1];
+            assert(x <= y);
+            assert(field[x] != -1);
+            assert(field[y] != -1);
+            for(int npos=x; npos <= y; npos += d){
+                vertical_server_pair[dir][npos] = {x, y};
+            }
+        }
+        else{
+            int x = get_server_pos(pos, 2);
+            int y = get_server_pos(pos, 0);
+            int d = dxy[0];
+            assert(x <= y);
+            assert(field[x] != -1);
+            assert(field[y] != -1);
+            for(int npos=x; npos <= y; npos += d){
+                vertical_server_pair[dir][npos] = {x, y};
+            }
+        }
+    }
+};
+
+
+struct DenseSolver : public BaseSolver{
+
+    DenseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
 
     vector<int> dfs(int limit, int emp_idx, int pre, int action_count_limit) {
         if(limit == 0) {
@@ -646,6 +675,97 @@ struct DenseSolver : public BaseSolver{
     }
 };
 
+struct SparseSolver : public BaseSolver{
+
+    SparseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
+
+    vector<MoveAction> move(){
+        vector<MoveAction> ret;
+        /*
+        State:
+        - field[(N+2)*(N+2)] <- *int (?)
+        - field_hash <- long long (デカいので衝突が怖い)
+        - 空白の位置 <- vector<int> ? (長さは固定なので) *intでいけるならそっちのが良い 
+        - 操作列 <- vector<int> ?
+        - Score <- int
+        */
+        int action_count_limit = _action_count_limit;
+        int best_score = calc_connect_score(0);
+        int iter = 0;
+        const int limit = 3;
+        int dxy2[] = {1, limit*2+1, -1, -limit*2-1};
+        // while(time.elapsed() < TIME_LIMIT) {
+        while(iter < 100){ // ローカルで動かす時にスコアが安定するように
+            int server_id = randint() % (int)server_pos.size(); // TODO: <- emp_idxはrandomじゃなくて順番でええか
+            int initial_pos = server_pos[server_id];
+            int next_pos = -1;
+            int next_comp_pos = -1;
+            int visited[(limit*2+1)*(limit*2+1)] = {};
+            queue<array<int,3>> que;
+            que.push({initial_pos, limit*(limit+1) + limit, 0});
+            visited[limit*(limit+1) + limit] = -1;
+            while(que.size()){
+                auto [pos, comp_pos, dist] = que.front();
+                que.pop();
+                if(dist >= action_count_limit) break;
+                if(dist) {
+                    empty_move_operation(field_empty_id[pos], initial_pos);
+                    int s = calc_connect_score(action_count_limit - dist);
+                    if(chmax(best_score, s)) {
+                        next_pos = pos;
+                        next_comp_pos = comp_pos;
+                    }
+                    empty_move_operation(field_empty_id[initial_pos], pos);
+                }
+                if(dist == limit) break;
+                for(int dir=0;dir<4;dir++){
+                    if(can_move(pos, dir) == false) continue;
+                    int npos = pos + dxy[dir];
+                    int comp_npos = comp_pos + dxy2[dir];
+                    if(visited[comp_npos] != 0) continue;
+                    visited[comp_npos] = dir + 1;
+                    que.push({npos, comp_npos, dist+1});
+                }
+            }
+
+            if(next_pos != -1) {
+                vector<MoveAction> tmp;
+                while(visited[next_comp_pos] != -1) {
+                    int dir = visited[next_comp_pos] - 1;
+                    int next_pos2 = next_pos - dxy[dir];
+                    int next_comp_pos2 = next_comp_pos - dxy2[dir];
+                    tmp.push_back(MoveAction(next_pos2, next_pos));
+                    swap(next_pos2, next_pos);
+                    swap(next_comp_pos2, next_comp_pos);
+                }
+                for(int i=(int)tmp.size() - 1;i>=0;i--){
+                    empty_move_operation(field_empty_id[tmp[i].pos2], tmp[i].pos1);
+                    ret.push_back(tmp[i]);
+                }
+                action_count_limit -= (int)tmp.size();
+            }
+
+            
+            iter++;
+        }
+        return ret;
+    }
+
+    Result solve(){
+        // create random moves
+        cerr << "BEGIN " << calc_connect_score(_action_count_limit) << "\n";
+        auto moves = move();
+        // auto moves = base_move();
+
+        // from each computer, connect to right and/or bottom if it will reach the same type
+        int action_count_limit = _action_count_limit - (int)moves.size();
+
+        auto connects = base_connect(action_count_limit);
+
+        return Result(moves, connects);
+    }
+};
+
 
 int main(){
 
@@ -659,8 +779,8 @@ int main(){
     }
 
     double density = double(K*100) / double(N*N);
-    const double DENSE = 0.6;
-    const double SPARSE = 0.6;
+    const double DENSE = 0.55;
+    const double SPARSE = 0.55;
     if(density >= DENSE) {
         cerr << "Solver: Dense" << "\n";
         DenseSolver s(N, K, field, time);
@@ -675,8 +795,8 @@ int main(){
     }
     else {
         cerr << "Solver: Sparse" << "\n";
-        BaseSolver s(N, K, field, time);
-        auto ret = s.base_solve();
+        SparseSolver s(N, K, field, time);
+        auto ret = s.solve();
         s.print_answer(ret);
     }
 

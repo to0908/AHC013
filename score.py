@@ -6,14 +6,14 @@ def getScore(path):
     with open(path) as f:
         line = f.readlines()
         if len(line) < 3:
-            return -1, -1, -1, -1
+            return -1, -1, -1, -1, -1
         N = int(line[0].lstrip("N = "))
         K = int(line[1].lstrip("K = "))
         density = float(line[2].lstrip("Density = "))
 
         score = line[-1]
         if 'Score = ' not in score:
-            return -1, -1, -1, -1
+            return -1, -1, -1, -1, -1
         score = int(score.lstrip("Score = "))
         score_ratio = score / (K * 50 * 99)
 
