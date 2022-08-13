@@ -685,7 +685,7 @@ struct SparseSolver : public BaseSolver{
         State:
         - field[(N+2)*(N+2)] <- *int (?)
         - field_hash <- long long (デカいので衝突が怖い)
-        - 空白の位置 <- vector<int> ? (長さは固定なので) *intでいけるならそっちのが良い 
+        - graph <- vector<vector<array<int,2>>> (vector<Graph>, Graph:=edge(pos1,pos2))
         - 操作列 <- vector<int> ?
         - Score <- int
         */
