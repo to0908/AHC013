@@ -250,7 +250,7 @@ struct BaseSolver {
         */
         Timer time;
         vector<ConnectAction> ret;
-        UnionFind uf(N*N);
+        UnionFind uf(K*100);
 
 
         // 無害な連結
@@ -260,7 +260,7 @@ struct BaseSolver {
                 if(npos == -1) continue;
                 bool is_adjust = (abs(npos - pos) == 1 or abs(npos - pos) == N+2);
                 bool is_hasi = hasi[npos] & hasi[pos];
-                if((is_adjust or is_hasi) and uf.unite(raw_field[pos], raw_field[npos])) {
+                if((is_adjust or is_hasi) and uf.unite(field_server_id[pos], field_server_id[npos])) {
                     ret.push_back(ConnectAction(pos, npos));
                     action_count_limit--;
                     continue;
@@ -272,13 +272,13 @@ struct BaseSolver {
                     assert(field[now] == 0);
                     auto [pos_x, pos_y] = vertical_server_pair[dir][now];
                     int x = field[pos_x], y = field[pos_y];
-                    if(x > 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
+                    if(x > 0 and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
                         is_only_this_pair = false;
                         break;
                     }
                     now += dxy[dir];
                 }
-                if(is_only_this_pair and uf.unite(raw_field[pos], raw_field[npos])) {
+                if(is_only_this_pair and uf.unite(field_server_id[pos], field_server_id[npos])) {
                     ret.push_back(line_fill(pos, dir));
                     action_count_limit--;
                 }
@@ -293,19 +293,19 @@ struct BaseSolver {
                     for (int dir = 0; dir < 2; dir++) {
                         int npos = can_connect(pos, dir);
                         if(npos == -1) continue;
-                        if(uf.same(raw_field[pos], raw_field[npos])) continue;
-                        int sz1 = uf.size(raw_field[pos]), sz2 = uf.size(raw_field[npos]);
+                        if(uf.same(field_server_id[pos], field_server_id[npos])) continue;
+                        int sz1 = uf.size(field_server_id[pos]), sz2 = uf.size(field_server_id[npos]);
                         int score = sz1 * sz2;
                         int now = pos + dxy[dir];
                         while(now != npos) {
                             auto [pos_x, pos_y] = vertical_server_pair[dir][now];
                             int x = field[pos_x], y = field[pos_y];
-                            if(x != 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
-                                score -= uf.size(raw_field[pos_x]) * uf.size(raw_field[pos_y]);
+                            if(x != 0 and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
+                                score -= uf.size(field_server_id[pos_x]) * uf.size(field_server_id[pos_y]);
                             }
                             now += dxy[dir];
                         }
-                        if(score > 0 and uf.unite(raw_field[pos], raw_field[npos])) {
+                        if(score > 0 and uf.unite(field_server_id[pos], field_server_id[npos])) {
                             connected=true;
                             ret.push_back(line_fill(pos, dir));
                             action_count_limit--;
@@ -323,8 +323,8 @@ struct BaseSolver {
                 for (int dir = 0; dir < 2; dir++) {
                     int npos = can_connect(pos, dir);
                     if(npos == -1) continue;
-                    if(uf.same(raw_field[pos], raw_field[npos])) continue;
-                    int sz1 = uf.size(raw_field[pos]), sz2 = uf.size(raw_field[npos]);
+                    if(uf.same(field_server_id[pos], field_server_id[npos])) continue;
+                    int sz1 = uf.size(field_server_id[pos]), sz2 = uf.size(field_server_id[npos]);
                     int score = sz1 * sz2;
                     edge.push_back({score, dir, pos, npos});
                 }
@@ -332,7 +332,7 @@ struct BaseSolver {
             sort(all(edge), greater<array<int,4>>());
             for(auto &[score, dir, pos, npos] : edge){
                 if(npos != can_connect(pos, dir)) continue;
-                if(uf.unite(raw_field[pos], raw_field[npos])){
+                if(uf.unite(field_server_id[pos], field_server_id[npos])){
                     ret.push_back(line_fill(pos, dir));
                     action_count_limit--;
                 }
@@ -342,7 +342,7 @@ struct BaseSolver {
 
         if(action_count_limit < 0) {
             vector<array<int, 2>> sz;
-            for(int i=0;i<N*N;i++) {
+            for(int i=0;i<K*100;i++) {
                 if(i == uf.root(i) and uf.size(i) > 1) sz.push_back({uf.size(i), i});
             }
             sort(all(sz));
@@ -354,7 +354,7 @@ struct BaseSolver {
                     for(auto &action : ret) {
                         bool ok = true;
                         for(int j=0;j<=i;j++){
-                            if(uf.same(sz[j][1], raw_field[action.pos1])) {
+                            if(uf.same(sz[j][1], field_server_id[action.pos1])) {
                                 if(action_count_limit > 1 and i == j){
                                     tmp.push_back(action);
                                 }
@@ -403,7 +403,7 @@ struct BaseSolver {
 
     int calc_connect_score(int action_count_limit){
         int score = 0;
-        UnionFind uf(N*N);
+        UnionFind uf(K*100);
         vector<int> used;
 
         // 無害な連結
@@ -414,9 +414,9 @@ struct BaseSolver {
                 if(npos == -1) continue;
                 bool is_adjust = (abs(npos - pos) == 1 or abs(npos - pos) == N+2);
                 bool is_hasi = hasi[npos] & hasi[pos];
-                int sz1 = uf.size(raw_field[pos]);
-                int sz2 = uf.size(raw_field[npos]);
-                if((is_adjust or is_hasi) and uf.unite(raw_field[pos], raw_field[npos])) {
+                int sz1 = uf.size(field_server_id[pos]);
+                int sz2 = uf.size(field_server_id[npos]);
+                if((is_adjust or is_hasi) and uf.unite(field_server_id[pos], field_server_id[npos])) {
                     score += sz1 * sz2;
                     action_count_limit--;
                     continue;
@@ -427,13 +427,13 @@ struct BaseSolver {
                 while(now != npos) {
                     auto [pos_x, pos_y] = vertical_server_pair[dir][now];
                     int x = field[pos_x], y = field[pos_y];
-                    if(x > 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
+                    if(x > 0 and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
                         is_only_this_pair = false;
                         break;
                     }
                     now += dxy[dir];
                 }
-                if(is_only_this_pair and uf.unite(raw_field[pos], raw_field[npos])) {
+                if(is_only_this_pair and uf.unite(field_server_id[pos], field_server_id[npos])) {
                     score += sz1 * sz2;
                     int ps = pos + dxy[dir];
                     while(ps != npos) {
@@ -455,19 +455,19 @@ struct BaseSolver {
                     for (int dir = 0; dir < 2; dir++) {
                         int npos = can_connect(pos, dir);
                         if(npos == -1) continue;
-                        if(uf.same(raw_field[pos], raw_field[npos])) continue;
-                        int sz1 = uf.size(raw_field[pos]), sz2 = uf.size(raw_field[npos]);
+                        if(uf.same(field_server_id[pos], field_server_id[npos])) continue;
+                        int sz1 = uf.size(field_server_id[pos]), sz2 = uf.size(field_server_id[npos]);
                         int score2 = sz1 * sz2;
                         int now = pos + dxy[dir];
                         while(now != npos) {
                             auto [pos_x, pos_y] = vertical_server_pair[dir][now];
                             int x = field[pos_x], y = field[pos_y];
-                            if(x != 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
-                                score2 -= uf.size(raw_field[pos_x]) * uf.size(raw_field[pos_y]);
+                            if(x != 0 and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
+                                score2 -= uf.size(field_server_id[pos_x]) * uf.size(field_server_id[pos_y]);
                             }
                             now += dxy[dir];
                         }
-                        if(score2 > 0 and uf.unite(raw_field[pos], raw_field[npos])) {
+                        if(score2 > 0 and uf.unite(field_server_id[pos], field_server_id[npos])) {
                             connected=true;
                             score += sz1 * sz2;
                             int ps = pos + dxy[dir];
@@ -493,8 +493,8 @@ struct BaseSolver {
                 for (int dir = 0; dir < 2; dir++) {
                     int npos = can_connect(pos, dir);
                     if(npos == -1) continue;
-                    if(uf.same(raw_field[pos], raw_field[npos])) continue;
-                    int sz1 = uf.size(raw_field[pos]), sz2 = uf.size(raw_field[npos]);
+                    if(uf.same(field_server_id[pos], field_server_id[npos])) continue;
+                    int sz1 = uf.size(field_server_id[pos]), sz2 = uf.size(field_server_id[npos]);
                     int score2 = sz1 * sz2;
                     edge.push_back({score2, dir, pos, npos});
                 }
@@ -502,7 +502,7 @@ struct BaseSolver {
             sort(all(edge), greater<array<int,4>>());
             for(auto &[score2, dir, pos, npos] : edge){
                 if(npos != can_connect(pos, dir)) continue;
-                if(uf.unite(raw_field[pos], raw_field[npos])){
+                if(uf.unite(field_server_id[pos], field_server_id[npos])){
                     score += score2;
                     int ps = pos + dxy[dir];
                     while(ps != npos) {
@@ -519,7 +519,7 @@ struct BaseSolver {
 
         if(action_count_limit < 0) {
             vector<array<int, 2>> sz;
-            for(int i=0;i<N*N;i++) {
+            for(int i=0;i<K*100;i++) {
                 if(i == uf.root(i) and uf.size(i) > 1) sz.push_back({uf.size(i), i});
             }
             sort(all(sz));
@@ -743,6 +743,7 @@ struct SparseSolver : public BaseSolver{
                     ret.push_back(tmp[i]);
                 }
                 action_count_limit -= (int)tmp.size();
+                cerr << iter << " " << best_score << " " << action_count_limit << "\n";
             }
 
             
