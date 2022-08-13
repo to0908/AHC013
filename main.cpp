@@ -198,7 +198,7 @@ struct BaseSolver {
         assert(false);
     }
 
-    vector<ConnectAction> connect(int action_count_limit){
+    vector<ConnectAction> base_connect(int action_count_limit){
         /*
         無害なConnectだけをやっている
         */
@@ -235,9 +235,9 @@ struct BaseSolver {
                 bool is_only_this_pair = true;
                 int now = pos + dxy[dir];
                 while(now != npos) {
-                    auto [pos_x, pos_y] = vertical_server_pair[dir][now];
+                    auto [pos_x, pos_y] = vertical_server_pair[dir][raw_field[now]];
                     int x = field[pos_x], y = field[pos_y];
-                    if(x != 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
+                    if(x > 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
                         is_only_this_pair = false;
                         break;
                     }
@@ -250,8 +250,7 @@ struct BaseSolver {
             }
         }
 
-        // 貪欲に最も無害なのを繋げる (多分無害？わからんぜ)
-        // これ、Scoreでソートしたものを貪欲にやっていくのでいいのでは(つまりこれの後の有害な処理はいらない)
+        // 貪欲に最も無害なのを繋げる (多分無害？わからんぜ) <- 最適ではありません…
         if(1){
             while(true){
                 bool connected = false;
@@ -373,7 +372,7 @@ struct BaseSolver {
         auto moves = base_move(0);
         int action_count_limit = _action_count_limit - (int)moves.size();
         // from each computer, connect to right and/or bottom if it will reach the same type
-        auto connects = connect(action_count_limit);
+        auto connects = base_connect(action_count_limit);
         return Result(moves, connects);
     }
 
@@ -400,7 +399,7 @@ struct DenseSolver : public BaseSolver{
 
     DenseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
 
-    int connect2(int action_count_limit){
+    int calc_connect_score(int action_count_limit){
         /*
         無害なConnectだけをやっている
         */
@@ -440,9 +439,9 @@ struct DenseSolver : public BaseSolver{
                 bool is_only_this_pair = true;
                 int now = pos + dxy[dir];
                 while(now != npos) {
-                    auto [pos_x, pos_y] = vertical_server_pair[dir][now];
+                    auto [pos_x, pos_y] = vertical_server_pair[dir][raw_field[now]];
                     int x = field[pos_x], y = field[pos_y];
-                    if(x != 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
+                    if(x > 0 and x == y and !uf.same(raw_field[pos_x], raw_field[pos_y])) {
                         is_only_this_pair = false;
                         break;
                     }
@@ -570,7 +569,7 @@ struct DenseSolver : public BaseSolver{
 
     vector<int> dfs(int limit, int emp_idx, int pre, int action_count_limit) {
         if(limit == 0) {
-            return {connect2(action_count_limit)};
+            return {calc_connect_score(action_count_limit)};
         }
         int ma = -1;
         vector<int> op = {-1};
@@ -634,14 +633,14 @@ struct DenseSolver : public BaseSolver{
 
     Result solve(){
         // create random moves
-        cerr << "BEGIN " << connect2(_action_count_limit) << "\n";
+        cerr << "BEGIN " << calc_connect_score(_action_count_limit) << "\n";
         auto moves = move();
         // auto moves = base_move();
 
         // from each computer, connect to right and/or bottom if it will reach the same type
         int action_count_limit = _action_count_limit - (int)moves.size();
 
-        auto connects = connect(action_count_limit);
+        auto connects = base_connect(action_count_limit);
 
         return Result(moves, connects);
     }
