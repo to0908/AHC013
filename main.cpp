@@ -789,7 +789,8 @@ vector<Graph> make_new_graphs(vector<ConnectAction> &vc, int except_vertex = -1)
 }
 
 struct SparseSolver : public BaseSolver{
-
+    const int max_iter = 1000;
+    
     vector<vector<Graph>> g;
 
     void reset_graph(int action_count_limit) {
@@ -1000,7 +1001,7 @@ struct SparseSolver : public BaseSolver{
         const int limit = 3;
         int dxy2[] = {1, limit*2+1, -1, -limit*2-1};
         // while(time.elapsed() < TIME_LIMIT) {
-        while(iter < 100){ // ローカルで動かす時にスコアが安定するように
+        while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
             
             // このやり方だと大きいサイズの頂点は選ばれにくいので良い気がする
             int color = randint() % K;
