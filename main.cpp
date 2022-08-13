@@ -531,9 +531,6 @@ struct DenseSolver : public BaseSolver{
         }
 
 
-        // TODO:
-        // ここで回数がoverする時は最後までやって得られるScoreが小さいものを分解していくみたいな感じが良いか
-        // 分解する際にも、いきなり真ん中で割るとスコアが大きく下がってしまう。端の方から分解するのが良い。
         if(action_count_limit < 0) {
             vector<array<int, 2>> sz;
             for(int i=0;i<N*N;i++) {
@@ -614,7 +611,8 @@ struct DenseSolver : public BaseSolver{
         int score = 0;
         // 実験として、雑なDFSでやる。これで上手くいくならビームを撃つ
         int iter = 0;
-        while(time.elapsed() < TIME_LIMIT) {
+        // while(time.elapsed() < TIME_LIMIT) {
+        while(iter < 100){ // ローカルで動かす時にスコアが安定するように
             int limit = randint() % 7 + 1;
             if(limit >= action_count_limit) continue;
             int emp_idx = randint() % (int)empty_pos.size(); // TODO: <- emp_idxはrandomじゃなくて順番でええか
@@ -662,14 +660,22 @@ int main(){
     }
 
     double density = double(K*100) / double(N*N);
-    if(density >= 0.6) {
+    const double DENSE = 0.6;
+    const double SPARSE = 0.6;
+    if(density >= DENSE) {
         cerr << "Solver: Dense" << "\n";
         DenseSolver s(N, K, field, time);
         auto ret = s.solve();
         s.print_answer(ret);
     }
-    else{
-        cerr << "Solver: Base" << "\n";
+    else if(density > SPARSE){
+        cerr << "Solver: Middle" << "\n";
+        BaseSolver s(N, K, field, time);
+        auto ret = s.base_solve();
+        s.print_answer(ret);
+    }
+    else {
+        cerr << "Solver: Sparse" << "\n";
         BaseSolver s(N, K, field, time);
         auto ret = s.base_solve();
         s.print_answer(ret);

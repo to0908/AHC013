@@ -17,6 +17,11 @@ fn main() {
     let mut doc = "".to_string();
     let mut v = Vec::new();
     let mut dense_v = Vec::new();
+    let mut middle_v = Vec::new();
+    let mut sparse_v = Vec::new();
+    let mut dense_score = 0 as f32;
+    let mut middle_score = 0 as f32;
+    let mut sparse_score = 0 as f32;
 
     
     // TODO: 
@@ -66,7 +71,32 @@ fn main() {
         });
 
         if solver_info == "Solver: Dense" {
+            dense_score += score as f32;
             dense_v.push(Answer {
+                n : input.n.clone(), 
+                k : input.k.clone(), 
+                seed: i.clone(),
+                score : score.clone(), 
+                move_count : move_count.clone(),
+                connect_count : connect_count.clone(),
+                svg : svg.clone()
+            });
+        }
+        if solver_info == "Solver: Middle" {
+            middle_score += score as f32;
+            middle_v.push(Answer {
+                n : input.n.clone(), 
+                k : input.k.clone(), 
+                seed: i.clone(),
+                score : score.clone(), 
+                move_count : move_count.clone(),
+                connect_count : connect_count.clone(),
+                svg : svg.clone()
+            });
+        }
+        if solver_info == "Solver: Sparse" {
+            sparse_score += score as f32;
+            sparse_v.push(Answer {
                 n : input.n.clone(), 
                 k : input.k.clone(), 
                 seed: i.clone(),
@@ -106,11 +136,10 @@ fn main() {
         index = format!("{}{}", index, format!("<a href=\"./visualize/seed_{}-{}.html\">{0}-{1}</a>\n", l, r));
     }
 
-    index = format!("{}<br><br>Dense Solver<br>", index);
-
     // これ関数化したい気持ちがあるぜ！
-    let sz2 = dense_v.len() / 10;
-    for i in 0..sz2 {
+    index = format!("{}<br><br>Dense Solver, Mean Score={}<br>", index, dense_score / dense_v.len() as f32);
+    let sz = dense_v.len() / 10;
+    for i in 0..sz {
         let mut clus = "".to_string();
         let l = i * 10;
         let r = std::cmp::min(dense_v.len(), i*10+10);
@@ -127,6 +156,48 @@ fn main() {
         let vis = format!("<html><body>{}</body></html>", clus);
         std::fs::write(format!("visualize/dense_{}-{}.html", l, r), &vis).unwrap();
         index = format!("{}{}", index, format!("<a href=\"./visualize/dense_{}-{}.html\">{0}-{1}</a>\n", l, r));
+    }
+
+    index = format!("{}<br><br>Middle Solver<br>", index);
+    let sz = middle_v.len() / 10;
+    for i in 0..sz {
+        let mut clus = "".to_string();
+        let l = i * 10;
+        let r = std::cmp::min(middle_v.len(), i*10+10);
+        for j in l..r {
+            let max_score = (middle_v[j].k * 50 * 99) as f32;
+            let f_score = middle_v[j].score as f32;
+            let ratio = f_score / max_score;
+            let action_count = middle_v[j].move_count + middle_v[j].connect_count;
+            let density = (middle_v[j].k * 100) as f32 / (middle_v[j].n * middle_v[j].n) as f32;
+            clus = format!("{}seed={}, N={}, K={}, Density={}, Score={} (ratio: {}), Action={} (残り: {}, Move={}, Connect={})<br>{}<br><br>", 
+                clus, middle_v[j].seed, middle_v[j].n, middle_v[j].k, density, middle_v[j].score, ratio, 
+                action_count, middle_v[j].k*100 - action_count, middle_v[j].move_count, middle_v[j].connect_count, middle_v[j].svg);
+        }
+        let vis = format!("<html><body>{}</body></html>", clus);
+        std::fs::write(format!("visualize/middle_{}-{}.html", l, r), &vis).unwrap();
+        index = format!("{}{}", index, format!("<a href=\"./visualize/middle_{}-{}.html\">{0}-{1}</a>\n", l, r));
+    }
+
+    index = format!("{}<br><br>Sparse Solver , Mean Score={}<br>", index, sparse_score / sparse_v.len() as f32);
+    let sz = sparse_v.len() / 10;
+    for i in 0..sz {
+        let mut clus = "".to_string();
+        let l = i * 10;
+        let r = std::cmp::min(sparse_v.len(), i*10+10);
+        for j in l..r {
+            let max_score = (sparse_v[j].k * 50 * 99) as f32;
+            let f_score = sparse_v[j].score as f32;
+            let ratio = f_score / max_score;
+            let action_count = sparse_v[j].move_count + sparse_v[j].connect_count;
+            let density = (sparse_v[j].k * 100) as f32 / (sparse_v[j].n * sparse_v[j].n) as f32;
+            clus = format!("{}seed={}, N={}, K={}, Density={}, Score={} (ratio: {}), Action={} (残り: {}, Move={}, Connect={})<br>{}<br><br>", 
+                clus, sparse_v[j].seed, sparse_v[j].n, sparse_v[j].k, density, sparse_v[j].score, ratio, 
+                action_count, sparse_v[j].k*100 - action_count, sparse_v[j].move_count, sparse_v[j].connect_count, sparse_v[j].svg);
+        }
+        let vis = format!("<html><body>{}</body></html>", clus);
+        std::fs::write(format!("visualize/sparse_{}-{}.html", l, r), &vis).unwrap();
+        index = format!("{}{}", index, format!("<a href=\"./visualize/sparse_{}-{}.html\">{0}-{1}</a>\n", l, r));
     }
 
     // htmlを閉じる (ここから後ろは編集しない)
