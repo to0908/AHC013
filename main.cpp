@@ -87,14 +87,15 @@ struct BaseSolver {
     int raw_field[2500];
     bool hasi[2500];
     vector<int> field_list;
+    Timer time;
 
     int field[2500];
     vector<int> server_pos;
     int field_server_id[2500];
     vector<int> empty_pos;
 
-    BaseSolver(int N, int K, const vector<string> &field_) : 
-        N(N), K(K), _action_count_limit(K * 100){
+    BaseSolver(int N, int K, const vector<string> &field_, Timer &time) : 
+        N(N), K(K), _action_count_limit(K * 100), time(time){
         int cnt = 0;
         server_pos.resize(K*100, -1);
         for(int i=1;i<=N;i++){
@@ -228,9 +229,6 @@ struct BaseSolver {
                 if((is_adjust or is_hasi) and uf.unite(raw_field[pos], raw_field[npos])) {
                     ret.push_back(ConnectAction(pos, npos));
                     action_count_limit--;
-                    if (action_count_limit <= 0) {
-                        return ret;
-                    }
                     continue;
                 }
 
@@ -248,14 +246,12 @@ struct BaseSolver {
                 if(is_only_this_pair and uf.unite(raw_field[pos], raw_field[npos])) {
                     ret.push_back(line_fill(pos, dir));
                     action_count_limit--;
-                    if (action_count_limit <= 0) {
-                        return ret;
-                    }
                 }
             }
         }
 
         // 貪欲に最も無害なのを繋げる (多分無害？わからんぜ)
+        // これ、Scoreでソートしたものを貪欲にやっていくのでいいのでは(つまりこれの後の有害な処理はいらない)
         if(1){
             while(true){
                 bool connected = false;
@@ -279,9 +275,6 @@ struct BaseSolver {
                             connected=true;
                             ret.push_back(line_fill(pos, dir));
                             action_count_limit--;
-                            if (action_count_limit <= 0) {
-                                return ret;
-                            }
                         }
                     }
                 }
@@ -308,17 +301,68 @@ struct BaseSolver {
                 if(uf.unite(raw_field[pos], raw_field[npos])){
                     ret.push_back(line_fill(pos, dir));
                     action_count_limit--;
-                    if (action_count_limit <= 0) {
-                        return ret;
-                    }
                 }
             }
         }
 
 
-        // TODO:
-        // ここで回数がoverする時は最後までやって得られるScoreが小さいものを分解していくみたいな感じが良いか
-        // 分解する際にも、いきなり真ん中で割るとスコアが大きく下がってしまう。端の方から分解するのが良い。
+        if(action_count_limit < 0) {
+            vector<array<int, 2>> sz;
+            for(int i=0;i<N*N;i++) {
+                if(i == uf.root(i) and uf.size(i) > 1) sz.push_back({uf.size(i), i});
+            }
+            sort(all(sz));
+            vector<ConnectAction> nret;
+            for(int i=0;i<(int)sz.size();i++){
+                action_count_limit += sz[i][0]-1;
+                if(action_count_limit >= 0) {
+                    vector<ConnectAction> tmp;
+                    for(auto &action : ret) {
+                        bool ok = true;
+                        for(int j=0;j<=i;j++){
+                            if(uf.same(sz[j][1], raw_field[action.pos1])) {
+                                if(action_count_limit > 1 and i == j){
+                                    tmp.push_back(action);
+                                }
+                                else if(action_count_limit == 1 and i == j) {
+                                    action_count_limit--;
+                                    break;
+                                }
+                                ok = false;
+                                break;
+                            }
+                        }
+                        if(ok) nret.push_back(action);
+                    }
+                    if(action_count_limit > 1) {
+                        queue<int> que;
+                        que.push(tmp[0].pos1);
+                        que.push(tmp[0].pos2);
+                        action_count_limit--;
+                        nret.push_back(tmp[0]);
+                        bool used[(int)tmp.size()] = {};
+                        while(que.size()) {
+                            if(action_count_limit == 0) break;
+                            int now = que.front(); que.pop();
+                            for(int c=1;c<(int)tmp.size();c++) {
+                                if(used[c]) continue;
+                                if(tmp[c].pos1 == now or tmp[c].pos2 == now) {
+                                    used[c] = 1;
+                                    nret.push_back(tmp[c]);
+                                    action_count_limit--;
+                                    if(action_count_limit == 0) break;
+                                    if(tmp[c].pos1 != now) que.push(tmp[c].pos1);
+                                    if(tmp[c].pos2 != now) que.push(tmp[c].pos2);
+                                } 
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+            swap(ret, nret);
+        }
+
         cerr << "Connect Time = " << time.elapsed() << "\n";
         return ret;
     }
@@ -354,7 +398,7 @@ struct BaseSolver {
 
 struct DenseSolver : public BaseSolver{
 
-    DenseSolver(int N, int K, const vector<string> &field_) : BaseSolver(N, K, field_) {}
+    DenseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
 
     int connect2(int action_count_limit){
         /*
@@ -390,10 +434,6 @@ struct DenseSolver : public BaseSolver{
                 if((is_adjust or is_hasi) and uf.unite(raw_field[pos], raw_field[npos])) {
                     score += sz1 * sz2;
                     action_count_limit--;
-                    if (action_count_limit <= 0) {
-                        for(auto i:used) field[i] = 0;
-                        return score;
-                    }
                     continue;
                 }
 
@@ -418,10 +458,6 @@ struct DenseSolver : public BaseSolver{
                         ps += dxy[dir];
                     }
                     action_count_limit--;
-                    if (action_count_limit <= 0) {
-                        for(auto i:used) field[i] = 0;
-                        return score;
-                    }
                 }
             }
         }
@@ -457,10 +493,6 @@ struct DenseSolver : public BaseSolver{
                                 ps += dxy[dir];
                             }
                             action_count_limit--;
-                            if (action_count_limit <= 0) {
-                                for(auto i:used) field[i] = 0;
-                                return score;
-                            }
                         }
                     }
                 }
@@ -494,20 +526,31 @@ struct DenseSolver : public BaseSolver{
                         ps += dxy[dir];
                     }
                     action_count_limit--;
-                    if (action_count_limit <= 0) {
-                        for(auto i:used) field[i] = 0;
-                        return score;
-                    }
                 }
             }
         }
 
-        for(auto i:used) field[i] = 0;
 
         // TODO:
         // ここで回数がoverする時は最後までやって得られるScoreが小さいものを分解していくみたいな感じが良いか
         // 分解する際にも、いきなり真ん中で割るとスコアが大きく下がってしまう。端の方から分解するのが良い。
-
+        if(action_count_limit < 0) {
+            vector<array<int, 2>> sz;
+            for(int i=0;i<N*N;i++) {
+                if(i == uf.root(i) and uf.size(i) > 1) sz.push_back({uf.size(i), i});
+            }
+            sort(all(sz));
+            for(int i=0;i<(int)sz.size();i++){
+                action_count_limit += sz[i][0]-1;
+                if(action_count_limit < 0) score -= sz[i][0] * (sz[i][0]-1) / 2;
+                else {
+                    score -= sz[i][0] * (sz[i][0]-1) / 2;
+                    score += action_count_limit * (action_count_limit+1) / 2;
+                    break;
+                }
+            }
+        }
+        for(auto i:used) field[i] = 0;
         return score;
     }
 
@@ -544,7 +587,7 @@ struct DenseSolver : public BaseSolver{
                 assert(field[npos] <= K);
                 empty_move_operation(emp_idx, npos);
                 assert(empty_pos[emp_idx] == npos);
-                auto v = dfs(limit-1, emp_idx, pos, action_count_limit-1);
+                auto v = dfs(limit-1, emp_idx, pos, action_count_limit);
                 assert((int)v.size() >= 1);
                 int score = v[0];
                 if(chmax(ma, score)){
@@ -570,32 +613,23 @@ struct DenseSolver : public BaseSolver{
         int action_count_limit = _action_count_limit;
         int score = 0;
         // 実験として、雑なDFSでやる。これで上手くいくならビームを撃つ
-        for(int iter=0;iter<100;iter++) {
+        int iter = 0;
+        while(time.elapsed() < TIME_LIMIT) {
             int limit = randint() % 7 + 1;
-            if(limit > action_count_limit) continue;
+            if(limit >= action_count_limit) continue;
             int emp_idx = randint() % (int)empty_pos.size(); // TODO: <- emp_idxはrandomじゃなくて順番でええか
-            assert(emp_idx >= 0 and emp_idx < (int)empty_pos.size());
-            auto v = dfs(limit, emp_idx, -1, action_count_limit);
-            assert((int)v.size() == 1 or (int)v.size() == limit+1);
+            auto v = dfs(limit, emp_idx, -1, action_count_limit - limit);
             if(chmax(score, v[0])) {
                 action_count_limit -= (int)v.size() - 1;
                 for(int i=(int)v.size()-1;i>=1;i--){
                     int pos = empty_pos[emp_idx];
                     int npos = v[i];
-                    {
-                        bool ok = false;
-                        for(int dir=0;dir<4;dir++) if(pos + dxy[dir] == npos) ok = 1;
-                        assert(ok);
-                    }
-                    assert(pos != npos);
-                    assert(field[pos] == 0);
-                    assert(field[npos] != -1);
-                    assert(field[npos] <= K);
                     ret.push_back(MoveAction(npos, pos));
                     empty_move_operation(emp_idx, npos);
                 }
+                cerr << iter << " " << score << " " << action_count_limit << "\n";
             }
-            cerr << iter << " " << score << " " << action_count_limit << "\n";
+            iter++;
         }
         return ret;
     }
@@ -630,16 +664,18 @@ int main(){
     double density = double(K*100) / double(N*N);
     if(density >= 0.6) {
         cerr << "Solver: Dense" << "\n";
-        DenseSolver s(N, K, field);
+        DenseSolver s(N, K, field, time);
         auto ret = s.solve();
         s.print_answer(ret);
     }
     else{
         cerr << "Solver: Base" << "\n";
-        BaseSolver s(N, K, field);
+        BaseSolver s(N, K, field, time);
         auto ret = s.base_solve();
         s.print_answer(ret);
     }
+
+    // while(time.elapsed() < 2800)continue;
 
     cerr << "Time = " << time.elapsed() << "\n";
 }
