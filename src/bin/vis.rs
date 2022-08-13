@@ -14,7 +14,6 @@ pub struct Answer {
 
 fn main() {
 
-    let mut doc = "".to_string();
     let mut v = Vec::new();
     let mut dense_v = Vec::new();
     let mut middle_v = Vec::new();
@@ -109,11 +108,9 @@ fn main() {
 
         let vis = format!("<html><body>{}</body></html>", svg);
         std::fs::write(format!("visualize/{}.html", basename), &vis).unwrap();
-
-        doc = format!("{}{}", doc, format!("<a href=\"./visualize/{}.html\">{}</a>\n", basename, basename))
     }
 
-    let mut index = format!("<html><body>{}<br><br>", doc);
+    let mut index = "<html><body>Seed<br>".to_string();
 
     // 10個ずつ表示
     let sz = v.len() / 10;
@@ -158,7 +155,11 @@ fn main() {
         index = format!("{}{}", index, format!("<a href=\"./visualize/dense_{}-{}.html\">{0}-{1}</a>\n", l, r));
     }
 
-    index = format!("{}<br><br>Middle Solver<br>", index);
+    let mut mean_score = 0 as f32;
+    if middle_v.len() != 0 {
+        mean_score = middle_score / middle_v.len() as f32;
+    }
+    index = format!("{}<br><br>Middle Solver, Mean Score={}<br>", index, mean_score);
     let sz = middle_v.len() / 10;
     for i in 0..sz {
         let mut clus = "".to_string();
@@ -179,7 +180,7 @@ fn main() {
         index = format!("{}{}", index, format!("<a href=\"./visualize/middle_{}-{}.html\">{0}-{1}</a>\n", l, r));
     }
 
-    index = format!("{}<br><br>Sparse Solver , Mean Score={}<br>", index, sparse_score / sparse_v.len() as f32);
+    index = format!("{}<br><br>Sparse Solver, Mean Score={}<br>", index, sparse_score / sparse_v.len() as f32);
     let sz = sparse_v.len() / 10;
     for i in 0..sz {
         let mut clus = "".to_string();
