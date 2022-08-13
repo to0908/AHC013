@@ -67,6 +67,7 @@ struct MoveAction {
 
 struct ConnectAction {
     int pos1, pos2;
+    ConnectAction(){}
     ConnectAction(int pos1, int pos2) : pos1(pos1), pos2(pos2) {}
 };
 
@@ -83,10 +84,9 @@ struct BaseSolver {
 
     int N, K;
     int _action_count_limit;
+    vector<int> field_list;
     array<int, 2> rev_field[2500]; // (N+2)**2 cells -> N*N cells (x, y)
-    int raw_field[2500]; // (N+2)**2 cells pos -> N*N cells pos
     bool hasi[2500];
-    vector<int> field_list; // inner field list (N*N cells)
     Timer time;
 
     int field[2500]; // field[pos] := -1/0/server
@@ -117,7 +117,6 @@ struct BaseSolver {
                 }
                 field_list.emplace_back(pos);
                 rev_field[pos] = {i-1, j-1};
-                raw_field[pos] = (i-1)*N + j-1;
                 if(i == 1 or i == N or j == 1 or j == N) hasi[pos] = true;
                 else hasi[pos] = false;
             }
@@ -155,7 +154,7 @@ struct BaseSolver {
         return field[npos] == 0;
     }
 
-    void empty_move_operation(int emp_id, int npos){
+    void empty_move_operation(int emp_id, int npos, bool is_update_vertical_info=true){
         int pos = empty_pos[emp_id];
         assert(field[npos] > 0 and field[npos] <= K);
         assert(field[pos] == 0);
@@ -171,19 +170,22 @@ struct BaseSolver {
 
         assert(field_server_id[pos] >= 0);
         assert(field_server_id[npos] == -1);
-        // server
-        for(int dir=0;dir<4;dir++){
-            int nx = pos + dxy[dir];
-            while(field[nx] == 0) {
-                // RDLU
-                // 0101
-                vertical_server_pair[(dir&1)^1][nx][(dir<=1)?0:1] = pos;
-                nx += dxy[dir];
+
+        if(is_update_vertical_info){
+            // server
+            for(int dir=0;dir<4;dir++){
+                int nx = pos + dxy[dir];
+                while(field[nx] == 0) {
+                    // RDLU
+                    // 0101
+                    vertical_server_pair[(dir&1)^1][nx][(dir<=1)?0:1] = pos;
+                    nx += dxy[dir];
+                }
             }
-        }
-        // empty
-        for(int dir=0;dir<2;dir++){
-            update_vertical_info(npos, dir);
+            // empty
+            for(int dir=0;dir<2;dir++){
+                update_vertical_info(npos, dir);
+            }
         }
     }
 
@@ -525,10 +527,10 @@ struct BaseSolver {
             sort(all(sz));
             for(int i=0;i<(int)sz.size();i++){
                 action_count_limit += sz[i][0]-1;
-                if(action_count_limit < 0) score -= sz[i][0] * (sz[i][0]-1) / 2;
+                if(action_count_limit < 0) score -= ((sz[i][0] * (sz[i][0]-1)) >> 1);
                 else {
-                    score -= sz[i][0] * (sz[i][0]-1) / 2;
-                    score += action_count_limit * (action_count_limit+1) / 2;
+                    score -= ((sz[i][0] * (sz[i][0]-1))>>1);
+                    score += ((action_count_limit * (action_count_limit+1)) >> 1);
                     break;
                 }
             }
@@ -593,6 +595,8 @@ private:
 
 
 struct DenseSolver : public BaseSolver{
+    
+    const int max_iter = 100;
 
     DenseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
 
@@ -640,7 +644,7 @@ struct DenseSolver : public BaseSolver{
         // 実験として、雑なDFSでやる。これで上手くいくならビームを撃つ
         int iter = 0;
         // while(time.elapsed() < TIME_LIMIT) {
-        while(iter < 100){ // ローカルで動かす時にスコアが安定するように
+        while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
             int limit = randint() % 7 + 1;
             if(limit >= action_count_limit) continue;
             int emp_idx = randint() % (int)empty_pos.size(); // TODO: <- emp_idxはrandomじゃなくて順番でええか
@@ -675,9 +679,310 @@ struct DenseSolver : public BaseSolver{
     }
 };
 
+struct Graph;
+vector<Graph> make_new_graphs(vector<ConnectAction> &vc, int except_vertex);
+
+struct Graph {
+    
+    vector<ConnectAction> v;
+    unordered_map<int, int> mp;
+    vector<int> vertices;
+
+    Graph(){}
+
+    int edge_size(){ return v.size(); }
+    int vertex_size(){ return vertices.size(); }
+
+    void ade_edge(int x, int y) {
+        v.push_back(ConnectAction(x, y));
+        if(mp[x] == 0) {
+            mp[x] = 1;
+            vertices.push_back(x);
+        }
+        if(mp[y] == 0) {
+            mp[y] = 1;
+            vertices.push_back(y);
+        }
+    }
+    void ade_edge(ConnectAction &e) {
+        v.push_back(e);
+        if(mp[e.pos1] == 0) {
+            mp[e.pos1] = 1;
+            vertices.push_back(e.pos1);
+        }
+        if(mp[e.pos2] == 0) {
+            mp[e.pos2] = 1;
+            vertices.push_back(e.pos2);
+        }
+    }
+    void add_vertex(int x) {
+        mp[x] = 1;
+        vertices.push_back(x);
+    }
+
+    vector<Graph> erase_vertex(int erase_vertex) {
+        // 頂点xを削除して、その結果グラフが分解された場合は1つだけ残して新しくできたグラフを返す
+        // 一番大きいグラフがそのまま残る
+        // 分解されなければ空のvectorが返る
+
+        vector<Graph> ret = make_new_graphs(v, erase_vertex);
+        v = ret[0].v;
+        ret.erase(ret.begin());
+        mp[erase_vertex] = 0;
+        for(int i=0;i<(int)vertices.size();i++){
+            if(vertices[i] == erase_vertex) {
+                vertices.erase(vertices.begin() + i);
+                break;
+            }
+        }
+        return ret;
+    }
+    bool contain(int vertex) {
+        return mp[vertex];
+    }
+
+    int score(int action_count_limit=100){
+        if(action_count_limit >= edge_size()) return (vertex_size() * (vertex_size() - 1)) >> 1;
+        else return (action_count_limit * (action_count_limit + 1)) >> 1;
+    }
+
+};
+
+vector<Graph> make_new_graphs(vector<ConnectAction> &vc, int except_vertex = -1) {
+    vector<Graph> ret;
+    int cnt = 0;
+    unordered_map<int, int> mp;
+    for(auto &c : vc) {
+        if(c.pos1 == except_vertex or c.pos2 == except_vertex) continue;
+        if(mp[c.pos1]==0)mp[c.pos1]=++cnt;
+        if(mp[c.pos2]==0)mp[c.pos2]=++cnt;
+    }
+    bool used[mp.size()] = {};
+    for(auto &pp:mp) {
+        if(used[pp.second-1]) continue;
+        Graph g;
+        g.add_vertex(pp.first);
+        queue<int> que;
+        que.push(pp.first);
+        used[pp.second-1] = true;
+        while(que.size()){
+            int now = que.front();
+            que.pop();
+            for(int i=0;i<(int)vc.size();i++) {
+                if(vc[i].pos1 == except_vertex or vc[i].pos2 == except_vertex) continue;
+                if(used[mp[vc[i].pos1]-1] and used[mp[vc[i].pos2]-1]) continue;
+                if(vc[i].pos1 == now) {
+                    g.ade_edge(vc[i]);
+                    used[mp[vc[i].pos2]-1] = true;
+                    que.push(vc[i].pos2);
+                } 
+                else if(vc[i].pos2 == now) {
+                    g.ade_edge(vc[i]);
+                    used[mp[vc[i].pos1]-1] = true;
+                    que.push(vc[i].pos1);
+                } 
+            } 
+        }
+        ret.push_back(g);
+    }
+    return ret;
+}
+
 struct SparseSolver : public BaseSolver{
 
-    SparseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
+    vector<vector<Graph>> g;
+
+    void reset_graph(int action_count_limit) {
+        g.clear();
+        g.resize(K);
+        vector<ConnectAction> ca = base_connect(action_count_limit);
+        for(auto &i : field_list) if(field[i] == USED) field[i] = 0;
+        vector<Graph> all_g = make_new_graphs(ca);
+        for(Graph & v : all_g) {
+            g[field[v.vertices[0]] - 1].push_back(v);
+        }
+
+        for(auto &i : field_list){
+            if(field[i] <= 0) continue;
+            bool is_contain = false;
+            for(auto &v : g[field[i] - 1]) {
+                if(v.contain(i)) {
+                    is_contain = true;
+                }
+            }
+            if(!is_contain) {
+                Graph new_g;
+                new_g.add_vertex(i);
+                g[field[i] - 1].push_back(new_g);
+            }
+        }
+    }
+
+    SparseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {
+        reset_graph(_action_count_limit);
+    }
+
+    int calc_strict_score(int action_count_limit, vector<vector<Graph>> &v) {
+        // XXX: これ、strictじゃないんだよな
+        // というのも、vは辺の交差を無視して作っているので
+        int score = 0;
+        vector<int> sz;
+        for(int i=0;i<K;i++)for(auto &g1 : v[i]) {
+            sz.push_back(g1.vertex_size());
+        }
+        sort(all(sz), greater<int>());
+        for(auto i : sz) {
+            if(i - 1 <= action_count_limit) {
+                score += ((i*(i-1))>>1);
+                action_count_limit -= i-1;
+            }
+            else{
+                score += ((action_count_limit * (action_count_limit + 1)) >> 1);
+                break;
+            }
+        }
+        return score;
+    }
+
+    int estimate_score_diff(vector<vector<Graph>> &vs, int color, int graph_id, 
+            int target_id, int from_pos, int to_pos, int action_count_limit, bool update_graph) {
+        // 交差で壊れるんだよな、やばいです
+        // 最終判定だけちゃんとしたcalc_scoreでええか
+
+        int diff = 0;
+
+        // STEP 1 & 2
+        if(!update_graph){
+            // step1: graph decomposition
+            vector<Graph> new_v = make_new_graphs(vs[color][graph_id].v, from_pos);
+            diff -= ((vs[color][graph_id].vertex_size() * (vs[color][graph_id].vertex_size() - 1)) >> 1);
+            
+            // step2 : to_pos connection
+            set<int> st;
+            for(int dir=0;dir<4;dir++) {
+                int npos = can_connect(to_pos, dir);
+                if(npos == -1) continue;
+                for(int i=0;i<(int)vs[color].size();i++) {
+                    if(vs[color][i].contain(npos)) {
+                        st.insert(i);
+                    }
+                }
+            }
+            int sz = 1;
+            for(auto i : st) {
+                diff -= vs[color][i].score();
+                sz += vs[color][i].vertex_size();
+            }
+            diff += ((sz * (sz - 1)) >> 1);
+        }
+        
+        // これは実際に操作をする時に行う処理なので、スコア計算の際には省ける
+        // 引数で操作を行うかを与えるようにするか？
+        if(update_graph){
+            if(update_graph){
+                vs[color][graph_id].erase_vertex(target_id);
+            }
+
+            vector<array<int,3>> connect; // {dir, npos, graph_id}
+            for(int dir=0;dir<4;dir++) {
+                int npos = can_connect(to_pos, dir);
+                if(npos == -1) continue;
+                for(int i=0;i<(int)vs[color].size();i++) {
+                    if(vs[color][i].contain(npos)) {
+                        connect.push_back({dir, npos, i});
+                    }
+                }
+            }
+            if(connect.size()){
+                vector<int> connected_graph_id;
+                for(int i=0;i<(int)connect.size();i++){
+                    bool used = false;
+                    for(int j=0;j<i;j++) {
+                        if(connect[i][2] == connect[j][2]) {
+                            used = 1;
+                            break;
+                        }
+                    }
+                    if(used) continue;
+                    int mi_idx = i;
+                    int dist = (connect[i][1] - to_pos) / dxy[connect[i][0]];
+                    // 同じグラフなら近い方を優先
+                    for(int j=i+1;j<(int)connect.size();j++){
+                        if(connect[i][2] == connect[j][2]) {
+                            int dist2 = (connect[j][1] - to_pos) / dxy[connect[j][0]];
+                            if(chmin(dist, dist2)) {
+                                mi_idx = j;
+                            }
+                        }
+                    }
+                    connected_graph_id.push_back(connect[mi_idx][2]);
+                    vs[color][connect[mi_idx][2]].ade_edge(to_pos, connect[i][1]);
+                }
+
+                if(connected_graph_id.size() > 1){
+                    // これでグラフサイズの降順になっていると思う
+                    sort(all(connected_graph_id), [&vs, &color](int &s1, int &s2) {return vs[color][s1].edge_size() > vs[color][s2].edge_size();});
+                    if(connected_graph_id.size() > 1) {
+                        // 降順になっているかチェック
+                        assert(vs[color][connected_graph_id[0]].edge_size() >= vs[color][connected_graph_id[1]].edge_size());
+                    }
+                    vector<int> era;
+                    for(int i=1;i<(int)connected_graph_id.size();i++) {
+                        auto &v = vs[color][connected_graph_id[i]].v;
+                        for(auto &e : v) {
+                            vs[color][connected_graph_id[0]].ade_edge(e);
+                        }
+                        era.push_back(connected_graph_id[i]);
+                    }
+                    sort(all(era),greater<int>());
+                    for(auto i:era) vs[color].erase(vs[color].begin() + i);
+                }
+            }
+        }
+
+        // step3: from_posがemptyになることによって繋がるものを見る
+        // RDLU
+        vector<int> adj;
+        for(int dir=0;dir<4;dir++){
+            int npos = from_pos + dxy[dir];
+            bool ok = false;
+            while(field[npos] != -1) {
+                if(field[npos] > 0) {
+                    adj.push_back(npos);
+                    ok = 1;
+                    break;
+                }
+                npos += dxy[dir];
+            }
+            if(!ok) adj.push_back(-1);
+        }
+        if(!update_graph) {
+            if(adj[0] != -1 and adj[2] != -1 and field[adj[0]] == field[adj[2]]) {
+                int c = field[adj[0]]-1;
+                int gid1 = 0, gid2 = 0;
+                for(int i=0;i<(int)vs[c].size();i++) {
+                    if(vs[c][i].contain(adj[0])) gid1 = i;
+                    if(vs[c][i].contain(adj[2])) gid2 = i;
+                }
+                if(gid1 != gid2) diff += vs[c][gid1].vertex_size() * vs[c][gid2].vertex_size();
+            }
+            if(adj[1] != -1 and adj[3] != -1 and field[adj[1]] == field[adj[3]]) {
+                int c = field[adj[1]]-1;
+                int gid1 = 0, gid2 = 0;
+                for(int i=0;i<(int)vs[c].size();i++) {
+                    if(vs[c][i].contain(adj[1])) gid1 = i;
+                    if(vs[c][i].contain(adj[3])) gid2 = i;
+                }
+                if(gid1 != gid2) diff += vs[c][gid1].vertex_size() * vs[c][gid2].vertex_size();
+            }
+        }
+        // 実際に操作するときの処理
+        // 交差が発生するのを無視して上下左右どっちも繋げる。
+        // 交差が発生するが、最終的に強い方が選ばれると考えるとこれでいいかという気持ちに
+        if(update_graph){
+        } 
+        return diff;
+    }
 
     vector<MoveAction> move(){
         vector<MoveAction> ret;
@@ -696,26 +1001,43 @@ struct SparseSolver : public BaseSolver{
         int dxy2[] = {1, limit*2+1, -1, -limit*2-1};
         // while(time.elapsed() < TIME_LIMIT) {
         while(iter < 100){ // ローカルで動かす時にスコアが安定するように
-            int server_id = randint() % (int)server_pos.size(); // TODO: <- emp_idxはrandomじゃなくて順番でええか
-            int initial_pos = server_pos[server_id];
+            
+            // このやり方だと大きいサイズの頂点は選ばれにくいので良い気がする
+            int color = randint() % K;
+            int graph_id = randint() % (int)g[color].size();
+            int target_id = randint() % (int)g[color][graph_id].vertex_size();
+
+            int target_pos = g[color][graph_id].vertices[target_id];
+
             int next_pos = -1;
             int next_comp_pos = -1;
+            // target_posからlimit歩以内で行けるマスを全探索(BFS)
             int visited[(limit*2+1)*(limit*2+1)] = {};
             queue<array<int,3>> que;
-            que.push({initial_pos, limit*(limit+1) + limit, 0});
+            que.push({target_pos, limit*(limit+1) + limit, 0});
             visited[limit*(limit+1) + limit] = -1;
+            int best_estimate_diff = 0;
+            int best_dist = 0;
             while(que.size()){
                 auto [pos, comp_pos, dist] = que.front();
                 que.pop();
                 if(dist >= action_count_limit) break;
                 if(dist) {
-                    empty_move_operation(field_empty_id[pos], initial_pos);
-                    int s = calc_connect_score(action_count_limit - dist);
-                    if(chmax(best_score, s)) {
+                    empty_move_operation(field_empty_id[pos], target_pos, false);
+                    // 交差で壊れるんだよな、やばいです
+                    // 最終判定だけちゃんとしたcalc_scoreでええか
+                    // int s = calc_connect_score(action_count_limit - dist);
+                    // if(chmax(best_score, s)) {
+                    //     next_pos = pos;
+                    //     next_comp_pos = comp_pos;
+                    // }
+                    int s = estimate_score_diff(g, color, graph_id, target_id, target_pos, pos, action_count_limit-dist, false);
+                    if(chmax(best_estimate_diff, s)) {
                         next_pos = pos;
                         next_comp_pos = comp_pos;
+                        best_dist = dist;
                     }
-                    empty_move_operation(field_empty_id[initial_pos], pos);
+                    empty_move_operation(field_empty_id[target_pos], pos, false);
                 }
                 if(dist == limit) break;
                 for(int dir=0;dir<4;dir++){
@@ -729,6 +1051,14 @@ struct SparseSolver : public BaseSolver{
             }
 
             if(next_pos != -1) {
+                empty_move_operation(field_empty_id[next_pos], target_pos, true);
+                int strict_score = calc_connect_score(action_count_limit - best_dist);
+                empty_move_operation(field_empty_id[target_pos], next_pos, true);
+                if(chmax(best_score, strict_score) == false) {
+                    iter++;
+                    continue;
+                }
+
                 vector<MoveAction> tmp;
                 while(visited[next_comp_pos] != -1) {
                     int dir = visited[next_comp_pos] - 1;
@@ -743,7 +1073,9 @@ struct SparseSolver : public BaseSolver{
                     ret.push_back(tmp[i]);
                 }
                 action_count_limit -= (int)tmp.size();
+                cerr << "est diff " << best_estimate_diff << "\n";
                 cerr << iter << " " << best_score << " " << action_count_limit << "\n";
+                reset_graph(action_count_limit);
             }
 
             
