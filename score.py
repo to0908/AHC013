@@ -68,10 +68,11 @@ if __name__ == '__main__':
     # print('Max Score :', '{:_}'.format(10**8))
     # print("density:", (sum / cnt) / 10**6)
 
-    fig = plt.figure(figsize = (15, 6), facecolor='lightblue')
-    ax1 = fig.add_subplot(1, 3, 1)
-    ax2 = fig.add_subplot(1, 3, 2)
-    ax3 = fig.add_subplot(1, 3, 3)
+    fig = plt.figure(figsize = (11, 11), facecolor='lightblue')
+    ax1 = fig.add_subplot(2, 2, 1)
+    ax2 = fig.add_subplot(2, 2, 2)
+    ax3 = fig.add_subplot(2, 2, 3)
+    ax4 = fig.add_subplot(2, 2, 4)
 
     ax1.scatter(result[:, 1], result[:, 0])
     ax1.set_xlabel('K')
@@ -84,5 +85,9 @@ if __name__ == '__main__':
     ax3.scatter(result[:, 2], result[:, 0])
     ax3.set_xlabel('Server Density')
     ax3.set_ylabel('Score')
+
+    ax4.scatter(result[:, 2], result[:, 3])
+    ax4.set_xlabel('Server Density')
+    ax4.set_ylabel('Score (ratio)')
 
     plt.savefig('fig.png')
