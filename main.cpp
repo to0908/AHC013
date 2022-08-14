@@ -77,8 +77,10 @@ struct Result {
 };
 
 struct BaseSolver {
+    const int max_iter = 1000;
     static constexpr int USED = 9;
     const int TIME_LIMIT = 2800;
+    const int target_range = 3;
     int dxy[4];
 
     int N, K;
@@ -94,12 +96,16 @@ struct BaseSolver {
     int field_server_id[2500]; // field_server_id[pos] := -1/server_id
     int field_empty_id[2500]; // field_empty_id[pos] := -1/empty_id
     vector<int> empty_pos; // empty_pos[empty_id] := pos
+    vector<int> calc_target_server_pos;
+    int calc_target_field_server_id[2500]; // field_server_id[pos] := -1/server_id
+
     array<int,2> vertical_server_pair[2][2500]; // [dir(0/1)][pos] := {pos1, pos2} (empty or server)
 
     BaseSolver(int N, int K, const vector<string> &field_, Timer &time) : 
         N(N), K(K), _action_count_limit(K * 100), time(time){
         int cnt = 0;
         server_pos.resize(K*100, -1);
+        for(int i=0;i<2500;i++)calc_target_field_server_id[i]=-1;
         for(int i=1;i<=N;i++){
             for(int j=1;j<=N;j++){
                 int pos = i*(N+2)+j;
@@ -109,6 +115,10 @@ struct BaseSolver {
                     field_server_id[pos] = cnt;
                     field_empty_id[pos] = -1;
                     cnt++;
+                    if(field[pos] <= target_range){
+                        calc_target_field_server_id[pos] = calc_target_server_pos.size();
+                        calc_target_server_pos.emplace_back(pos);
+                    }
                 }
                 else {
                     field_empty_id[pos] = empty_pos.size();
@@ -168,9 +178,11 @@ struct BaseSolver {
 
         swap(field[pos], field[npos]);
         swap(field_server_id[pos], field_server_id[npos]);
+        swap(calc_target_field_server_id[pos], calc_target_field_server_id[npos]);
         swap(field_empty_id[pos], field_empty_id[npos]);
         empty_pos[emp_id] = npos;
         server_pos[field_server_id[pos]] = pos;
+        if(field[pos] <= target_range) calc_target_server_pos[calc_target_field_server_id[pos]] = pos;
 
         assert(field_server_id[pos] >= 0);
         assert(field_server_id[npos] == -1);
@@ -390,7 +402,7 @@ struct BaseSolver {
 
         // 無害な連結
 
-        for(auto pos : server_pos){
+        for(auto pos : calc_target_server_pos){
             for (int dir = 0; dir < 2; dir++) {
                 int npos = can_connect(pos, dir);
                 if(npos == -1) continue;
@@ -433,7 +445,7 @@ struct BaseSolver {
         if(1){
             while(true){
                 bool connected = false;
-                for(auto pos : server_pos){
+                for(auto pos : calc_target_server_pos){
                     for (int dir = 0; dir < 2; dir++) {
                         int npos = can_connect(pos, dir);
                         if(npos == -1) continue;
@@ -471,7 +483,7 @@ struct BaseSolver {
         // 貪欲にスコアが高いものから連結 (有害)
         if(1){
             vector<array<int, 4>> edge;
-            for(auto pos : server_pos){
+            for(auto pos : calc_target_server_pos){
                 for (int dir = 0; dir < 2; dir++) {
                     int npos = can_connect(pos, dir);
                     if(npos == -1) continue;
@@ -613,7 +625,7 @@ struct DenseSolver : public BaseSolver{
         // 実験として、雑なDFSでやる。これで上手くいくならビームを撃つ
         int iter = 0;
         // while(time.elapsed() < TIME_LIMIT) {
-        while(iter < 100){ // ローカルで動かす時にスコアが安定するように
+        while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
             int limit = randint() % 7 + 1;
             if(limit >= action_count_limit) continue;
             int emp_idx = randint() % (int)empty_pos.size();
@@ -668,8 +680,8 @@ struct SparseSolver : public BaseSolver{
         int iter = 0;
         const int limit = 3;
         int dxy2[] = {1, limit*2+1, -1, -limit*2-1};
-        while(time.elapsed() < TIME_LIMIT) {
-        // while(iter < 1000){ // ローカルで動かす時にスコアが安定するように
+        // while(time.elapsed() < TIME_LIMIT) {
+        while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
             int server_id = randint() % (int)server_pos.size();
             int initial_pos = server_pos[server_id];
             int next_pos = -1;
