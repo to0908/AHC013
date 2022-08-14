@@ -45,14 +45,16 @@ class UnionFind{
         return -parent[root(A)];
     }
 
-    bool unite(int A, int B) {
+    int unite(int A, int B) {
         A = root(A), B = root(B);
         if(A == B) return false; 
 
-        if(size(A) < size(B)) swap(A,B);
+        int sa = size(A);
+        int sb = size(B);
+        if(sa < sb) swap(A,B);
         parent[A] += parent[B];
         parent[B] = A;
-        return true;
+        return sa * sb;
     }
 
     bool same(int A, int B){
@@ -76,10 +78,13 @@ struct Result {
     Result(const vector<MoveAction> &move, const vector<ConnectAction> &con) : move(move), connect(con) {}
 };
 
+
 struct BaseSolver {
-    static constexpr int USED = 9;
+    static constexpr int USED = 6;
+    static constexpr int USED_VERTICAL[6] = {-1, 7, 8, 9, 10, 11};
+    static constexpr int USED_HORIZONTAL[6] = {-1, 12, 13, 14, 15, 16};
     const int TIME_LIMIT = 2800;
-    int dxy[4];
+    int dxy[4]; // RDLU
 
     int N, K;
     int _action_count_limit;
@@ -87,6 +92,7 @@ struct BaseSolver {
     int raw_field[2500]; // (N+2)**2 cells pos -> N*N cells pos
     bool hasi[2500];
     vector<int> field_list; // inner field list (N*N cells)
+    int hasi_dist[2500][4];
     Timer time;
 
     int field[2500]; // field[pos] := -1/0/server
@@ -120,6 +126,10 @@ struct BaseSolver {
                 raw_field[pos] = (i-1)*N + j-1;
                 if(i == 1 or i == N or j == 1 or j == N) hasi[pos] = true;
                 else hasi[pos] = false;
+                hasi_dist[pos][0] = N-i;
+                hasi_dist[pos][1] = N-j;
+                hasi_dist[pos][2] = i;
+                hasi_dist[pos][3] = j;
             }
             field[i*(N+2)] = -1;
             field[(i+1)*(N+2)-1] = -1;
@@ -150,20 +160,33 @@ struct BaseSolver {
         }
     }
 
-    bool can_move(int pos, int dir) const{
+    bool can_move(int pos, int dir, int dense=true) const{
         int npos = pos + dxy[dir];
-        return field[npos] == 0;
+        if(!dense) {
+            int c = field[pos];
+            if(dir&1) {
+                // DU
+                if(field[pos+dxy[0]] == c or field[pos+dxy[2]] == c) return false;
+                if(field[pos+dxy[0]] == USED_HORIZONTAL[c] or field[pos+dxy[2]] == USED_HORIZONTAL[c]) return false;
+            }
+            else{
+                // RL
+                if(field[pos+dxy[1]] == c or field[pos+dxy[3]] == c) return false;
+                if(field[pos+dxy[1]] == USED_VERTICAL[c] or field[pos+dxy[3]] == USED_VERTICAL[c]) return false;
+            }
+        }
+        return field[npos] == 0 or field[npos] == USED_VERTICAL[field[pos]] or field[npos] == USED_HORIZONTAL[field[pos]];
     }
 
-    void empty_move_operation(int emp_id, int npos){
+    void empty_move_operation(int emp_id, int npos, bool do_update_vertical_info=true){
         int pos = empty_pos[emp_id];
         assert(field[npos] > 0 and field[npos] <= K);
-        assert(field[pos] == 0);
+        assert(field[pos] == 0 or field[pos] >= USED);
         assert(field_server_id[pos] == -1);
         assert(field_server_id[npos] >= 0);
         assert(field_server_id[npos] < K*100);
 
-        swap(field[pos], field[npos]);
+        swap(field[pos], field[npos]);// 
         swap(field_server_id[pos], field_server_id[npos]);
         swap(field_empty_id[pos], field_empty_id[npos]);
         empty_pos[emp_id] = npos;
@@ -171,40 +194,23 @@ struct BaseSolver {
 
         assert(field_server_id[pos] >= 0);
         assert(field_server_id[npos] == -1);
-        // server
-        for(int dir=0;dir<4;dir++){
-            int nx = pos + dxy[dir];
-            while(field[nx] == 0) {
-                // RDLU
-                // 0101
-                vertical_server_pair[(dir&1)^1][nx][(dir<=1)?0:1] = pos;
-                nx += dxy[dir];
+
+        if(do_update_vertical_info){
+            // server
+            for(int dir=0;dir<4;dir++){
+                int nx = pos + dxy[dir];
+                while(field[nx] == 0) {
+                    // RDLU
+                    // 0101
+                    vertical_server_pair[(dir&1)^1][nx][(dir<=1)?0:1] = pos;
+                    nx += dxy[dir];
+                }
+            }
+            // empty
+            for(int dir=0;dir<2;dir++){
+                update_vertical_info(npos, dir);
             }
         }
-        // empty
-        for(int dir=0;dir<2;dir++){
-            update_vertical_info(npos, dir);
-        }
-    }
-
-    vector<MoveAction> base_move(int move_limit = -1){
-        vector<MoveAction> ret;
-        if (move_limit == -1) {
-            move_limit = K * 50;
-        }
-
-        // for (int i = 0; i < move_limit; i++) {
-        //     int row = engine() % N;
-        //     int col = engine() % N;
-        //     int dir = engine() % 4;
-        //     if (field[row][col] != '0' && can_move(row, col, dir)) {
-        //         swap(field[row][col], field[row + dx[dir]][col + dy[dir]]);
-        //         ret.emplace_back(row, col, row + dx[dir], col + dy[dir]);
-        //         action_count_limit--;
-        //     }
-        // }
-
-        return ret;
     }
 
     int can_connect(int pos, int dir) const{
@@ -237,17 +243,15 @@ struct BaseSolver {
             if (field[npos] == field[pos]) {
                 return ConnectAction(pos, npos);
             }
-            assert(field[npos] == 0);
-            field[npos] = USED;
+            cerr << "---- A " << field[pos] << " " << dir << " " << field[npos] << "\n";
+            assert(field[npos] == 0 or field[npos] == ((dir&1)?USED_VERTICAL[field[pos]]:USED_HORIZONTAL[field[pos]]));
+            field[npos] = (dir&1)?USED_VERTICAL[field[pos]]:USED_HORIZONTAL[field[pos]];
             npos += dxy[dir];
         }
         assert(false);
     }
 
     vector<ConnectAction> base_connect(int action_count_limit){
-        /*
-        無害なConnectだけをやっている
-        */
         Timer time;
         vector<ConnectAction> ret;
         UnionFind uf(K*100);
@@ -272,7 +276,7 @@ struct BaseSolver {
                     assert(field[now] == 0);
                     auto [pos_x, pos_y] = vertical_server_pair[dir][now];
                     int x = field[pos_x], y = field[pos_y];
-                    if(x > 0 and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
+                    if(x > 0 and x < USED and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
                         is_only_this_pair = false;
                         break;
                     }
@@ -300,7 +304,7 @@ struct BaseSolver {
                         while(now != npos) {
                             auto [pos_x, pos_y] = vertical_server_pair[dir][now];
                             int x = field[pos_x], y = field[pos_y];
-                            if(x != 0 and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
+                            if(x != 0 and x < USED and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
                                 score -= uf.size(field_server_id[pos_x]) * uf.size(field_server_id[pos_y]);
                             }
                             now += dxy[dir];
@@ -400,6 +404,56 @@ struct BaseSolver {
         cerr << "Connect Time = " << time.elapsed() << "\n";
         return ret;
     }
+
+    void print_answer(const Result &res){
+        cout << res.move.size() << "\n";
+        for (auto m : res.move) {
+            auto [x1, y1] = rev_field[m.pos1];
+            auto [x2, y2] = rev_field[m.pos2];
+            cout << x1 << " " << y1 << " "
+                << x2 << " " << y2 << "\n";
+        }
+        cout << res.connect.size() << "\n";
+        for (auto m : res.connect) {
+            auto [x1, y1] = rev_field[m.pos1];
+            auto [x2, y2] = rev_field[m.pos2];
+            cout << x1 << " " << y1 << " "
+                << x2 << " " << y2 << "\n";
+        }
+    }
+
+private:
+    void update_vertical_info(int pos, int dir){
+        if(dir == 0) {
+            int x = get_server_pos(pos, 3);
+            int y = get_server_pos(pos, 1);
+            int d = dxy[1];
+            assert(x <= y);
+            assert(field[x] != -1);
+            assert(field[y] != -1);
+            for(int npos=x; npos <= y; npos += d){
+                vertical_server_pair[dir][npos] = {x, y};
+            }
+        }
+        else{
+            int x = get_server_pos(pos, 2);
+            int y = get_server_pos(pos, 0);
+            int d = dxy[0];
+            assert(x <= y);
+            assert(field[x] != -1);
+            assert(field[y] != -1);
+            for(int npos=x; npos <= y; npos += d){
+                vertical_server_pair[dir][npos] = {x, y};
+            }
+        }
+    }
+};
+
+
+struct DenseSolver : public BaseSolver{
+    const int max_iter = 100;
+
+    DenseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
 
     int calc_connect_score(int action_count_limit){
         int score = 0;
@@ -538,64 +592,6 @@ struct BaseSolver {
         return score;
     }
 
-    Result base_solve(){
-        // create random moves
-        auto moves = base_move(0);
-        int action_count_limit = _action_count_limit - (int)moves.size();
-        // from each computer, connect to right and/or bottom if it will reach the same type
-        auto connects = base_connect(action_count_limit);
-        return Result(moves, connects);
-    }
-
-    void print_answer(const Result &res){
-        cout << res.move.size() << "\n";
-        for (auto m : res.move) {
-            auto [x1, y1] = rev_field[m.pos1];
-            auto [x2, y2] = rev_field[m.pos2];
-            cout << x1 << " " << y1 << " "
-                << x2 << " " << y2 << "\n";
-        }
-        cout << res.connect.size() << "\n";
-        for (auto m : res.connect) {
-            auto [x1, y1] = rev_field[m.pos1];
-            auto [x2, y2] = rev_field[m.pos2];
-            cout << x1 << " " << y1 << " "
-                << x2 << " " << y2 << "\n";
-        }
-    }
-
-private:
-    void update_vertical_info(int pos, int dir){
-        if(dir == 0) {
-            int x = get_server_pos(pos, 3);
-            int y = get_server_pos(pos, 1);
-            int d = dxy[1];
-            assert(x <= y);
-            assert(field[x] != -1);
-            assert(field[y] != -1);
-            for(int npos=x; npos <= y; npos += d){
-                vertical_server_pair[dir][npos] = {x, y};
-            }
-        }
-        else{
-            int x = get_server_pos(pos, 2);
-            int y = get_server_pos(pos, 0);
-            int d = dxy[0];
-            assert(x <= y);
-            assert(field[x] != -1);
-            assert(field[y] != -1);
-            for(int npos=x; npos <= y; npos += d){
-                vertical_server_pair[dir][npos] = {x, y};
-            }
-        }
-    }
-};
-
-
-struct DenseSolver : public BaseSolver{
-
-    DenseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
-
     vector<int> dfs(int limit, int emp_idx, int pre, int action_count_limit) {
         if(limit == 0) {
             return {calc_connect_score(action_count_limit)};
@@ -640,7 +636,7 @@ struct DenseSolver : public BaseSolver{
         // 実験として、雑なDFSでやる。これで上手くいくならビームを撃つ
         int iter = 0;
         // while(time.elapsed() < TIME_LIMIT) {
-        while(iter < 100){ // ローカルで動かす時にスコアが安定するように
+        while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
             int limit = randint() % 7 + 1;
             if(limit >= action_count_limit) continue;
             int emp_idx = randint() % (int)empty_pos.size(); // TODO: <- emp_idxはrandomじゃなくて順番でええか
@@ -676,11 +672,220 @@ struct DenseSolver : public BaseSolver{
 };
 
 struct SparseSolver : public BaseSolver{
-
+    const int max_iter = 5;
     SparseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
+
+    bool unite(int pos, int dir, UnionFind &uf, int &score){
+        int r = can_connect(pos, dir);
+        if(r != -1) {
+            line_fill(pos, dir);
+            score += uf.size(field_server_id[pos]) * uf.size(field_server_id[r]);
+            uf.unite(field_server_id[pos], field_server_id[r]);
+            return true;
+        }
+        return false;
+    }
+
+    // ここれscore_diff > 0 なら常に動くことになるので、Fieldも操作してしまう
+    array<int,2> simulate_move(int pos, int npos, int action_count_limit, UnionFind &uf, int condition){
+        // move後の状態で行うことに注意
+
+        // return {score_diff, connect_count}
+
+        int score = 0, connect_count = 0;
+        int color = field[npos];
+        // condition: 0:free, 1:左右, 2:上下
+        
+        // Step1: 移動先連結判定(npos)
+        // TODO: 新しくできるところにLine埋めする
+        if(condition == 0){
+            if(field[pos] == USED_VERTICAL[color]){
+                int up = npos + dxy[3];
+                while(field[up] != color) up += dxy[3];
+                connect_count++;
+                action_count_limit--;
+                score += uf.size(field_server_id[npos]) * uf.size(field_server_id[up]);
+                uf.unite(field_server_id[npos], field_server_id[up]);
+                if(action_count_limit == 0) return {score, connect_count};
+
+                if(unite(npos, 0, uf, score)) {
+                    action_count_limit--;
+                    connect_count++;
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+                if(unite(npos, 2, uf, score)) {
+                    action_count_limit--;
+                    connect_count++;
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+            }
+            else if(field[pos] == USED_HORIZONTAL[color]){
+                int lef = npos + dxy[2];
+                while(field[lef] != color) lef += dxy[2];
+                connect_count++;
+                action_count_limit--;
+                score += uf.size(field_server_id[npos]) * uf.size(field_server_id[lef]);
+                uf.unite(field_server_id[npos], field_server_id[lef]);
+                if(unite(npos, 1, uf, score)) {
+                    action_count_limit--;
+                    connect_count++;
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+                if(unite(npos, 3, uf, score)) {
+                    action_count_limit--;
+                    connect_count++;
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+            }
+            else{
+                if(unite(npos, 0, uf, score)) {
+                    action_count_limit--;
+                    connect_count++;
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+                if(unite(npos, 1, uf, score)) {
+                    action_count_limit--;
+                    connect_count++;
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+                if(unite(npos, 2, uf, score)) {
+                    action_count_limit--;
+                    connect_count++;
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+                if(unite(npos, 3, uf, score)) {
+                    action_count_limit--;
+                    connect_count++;
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+            }
+        }
+        else if(condition == 1){
+            // 左右に移動が限定されている場合
+            if(unite(npos, 1, uf, score)) {
+                action_count_limit--;
+                connect_count++;
+                if(action_count_limit == 0) return {score, connect_count};
+            }
+            if(unite(npos, 3, uf, score)) {
+                action_count_limit--;
+                connect_count++;
+                if(action_count_limit == 0) return {score, connect_count};
+            }
+        }
+        else{
+            // 上下に移動が限定されている場合
+            if(unite(npos, 0, uf, score)) {
+                action_count_limit--;
+                connect_count++;
+                if(action_count_limit == 0) return {score, connect_count};
+            }
+            if(unite(npos, 2, uf, score)) {
+                action_count_limit--;
+                connect_count++;
+                if(action_count_limit == 0) return {score, connect_count};
+            }
+        }
+
+        // Step2: 空白部分(pos)連結判定
+        // RDLU
+        // condition12
+        // 中間は垂直連結無理、端なら短くする方なら連結がある
+        if(condition==0){
+            // TODO: まとめてやるのではなく、壁に近い方からやることで回数を削減できる
+            int r = get_server_pos(pos, 0);
+            int l = get_server_pos(pos, 2);
+            int d = get_server_pos(pos, 1);
+            int u = get_server_pos(pos, 3);
+
+            bool ok_du = (field[d] >= 1 and field[d] <= K and field[d] == field[u]);
+            bool ok_lr = (field[r] >= 1 and field[r] <= K and field[l] == field[r]);
+
+            if(ok_du and ok_lr){
+                int ok1 = uf.size(field_server_id[r]) * uf.size(field_server_id[l]);
+                int ok2 = uf.size(field_server_id[d]) * uf.size(field_server_id[u]);
+                if(ok1 > ok2){
+                    action_count_limit--;
+                    connect_count++;
+                    line_fill(l, 0);
+                    score += uf.unite(field_server_id[r], field_server_id[l]);
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+                else{
+                    action_count_limit--;
+                    connect_count++;
+                    line_fill(u, 1);
+                    score += uf.unite(field_server_id[d], field_server_id[u]);
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+            }
+            else if(ok_du){
+                int ok = uf.unite(field_server_id[d], field_server_id[u]);
+                if(ok){
+                    action_count_limit--;
+                    connect_count++;
+                    score += ok;
+                    line_fill(u, 1);
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+            }
+            else if(ok_lr){
+                int ok = uf.unite(field_server_id[r], field_server_id[l]);
+                if(ok){
+                    action_count_limit--;
+                    connect_count++;
+                    score += ok;
+                    line_fill(l, 0);
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+            }
+        }
+        else if(condition==1 and field[npos]==USED_HORIZONTAL[color]){
+            int d = get_server_pos(pos, 1);
+            int u = get_server_pos(pos, 3);
+            if(field[d] >= 1 and field[d] <= K and field[d] == field[u]){
+                int ok = uf.unite(field_server_id[d], field_server_id[u]);
+                if(ok){
+                    action_count_limit--;
+                    connect_count++;
+                    score += ok;
+                    line_fill(u, 1);
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+            }
+        }
+        else if(condition==2 and field[npos]==USED_VERTICAL[color]){
+            int r = get_server_pos(pos, 0);
+            int l = get_server_pos(pos, 2);
+            if(field[r] >= 1 and field[r] <= K and field[l] == field[r]){
+                int ok = uf.unite(field_server_id[r], field_server_id[l]);
+                if(ok){
+                    action_count_limit--;
+                    connect_count++;
+                    score += ok;
+                    line_fill(l, 0);
+                    if(action_count_limit == 0) return {score, connect_count};
+                }
+            }
+        }
+        
+        return {score, connect_count};
+    }
 
     vector<MoveAction> move(){
         vector<MoveAction> ret;
+        vector<ConnectAction> connect = base_connect(_action_count_limit);
+        int action_count_limit = _action_count_limit - (int)connect.size();
+        if(action_count_limit == 0) return ret;
+
+        int best_score = 0;
+        UnionFind uf(K*100);
+        for(auto &c : connect) {
+            int r1 = field_server_id[c.pos1];
+            int r2 = field_server_id[c.pos2];
+            best_score += uf.size(r1) * uf.size(r2);
+            uf.unite(r1, r2);
+        }
         /*
         State:
         - field[(N+2)*(N+2)] <- *int (?)
@@ -689,64 +894,85 @@ struct SparseSolver : public BaseSolver{
         - 操作列 <- vector<int> ?
         - Score <- int
         */
-        int action_count_limit = _action_count_limit;
-        int best_score = calc_connect_score(0);
         int iter = 0;
-        const int limit = 3;
+        int limit = 1;
         int dxy2[] = {1, limit*2+1, -1, -limit*2-1};
         // while(time.elapsed() < TIME_LIMIT) {
-        while(iter < 100){ // ローカルで動かす時にスコアが安定するように
-            int server_id = randint() % (int)server_pos.size(); // TODO: <- emp_idxはrandomじゃなくて順番でええか
-            int initial_pos = server_pos[server_id];
-            int next_pos = -1;
-            int next_comp_pos = -1;
-            int visited[(limit*2+1)*(limit*2+1)] = {};
-            queue<array<int,3>> que;
-            que.push({initial_pos, limit*(limit+1) + limit, 0});
-            visited[limit*(limit+1) + limit] = -1;
-            while(que.size()){
-                auto [pos, comp_pos, dist] = que.front();
-                que.pop();
-                if(dist >= action_count_limit) break;
-                if(dist) {
-                    empty_move_operation(field_empty_id[pos], initial_pos);
-                    int s = calc_connect_score(action_count_limit - dist);
-                    if(chmax(best_score, s)) {
-                        next_pos = pos;
-                        next_comp_pos = comp_pos;
+        while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
+            if(action_count_limit == 0) break;
+
+            bool moved = false;
+            int lim = (limit*2+1)*(limit*2+1);
+            int visited[lim] = {};
+            int start = limit*(limit+1) + limit;
+            for(int server_id=0;server_id<K*100;server_id++){
+                if(action_count_limit == 0) break;
+
+                int initial_pos = server_pos[server_id];
+                int condition = -1;
+                if(uf.size(server_id) == 1) condition = 0;
+                else {
+                    bool ho = false;
+                    bool va = false;
+                    if(ho and va) condition=-1;
+                } 
+                if(condition == -1) continue;
+
+                int next_pos = -1;
+                int next_comp_pos = -1;
+                queue<array<int,3>> que;
+                que.push({initial_pos, start, 0});
+                visited[start] = -1;
+
+                while(que.size()){
+                    auto [pos, comp_pos, dist] = que.front();
+                    que.pop();
+                    if(dist >= action_count_limit) break;
+                    if(dist) {
+                        empty_move_operation(field_empty_id[pos], initial_pos);
+                        auto [score, connect_count] = simulate_move(initial_pos, pos, action_count_limit - dist, uf, condition);
+                        if(score>0) {
+                            next_pos = pos;
+                            next_comp_pos = comp_pos;
+                            vector<MoveAction> tmp;
+                            while(visited[next_comp_pos] != -1) {
+                                int dir = visited[next_comp_pos] - 1;
+                                int next_pos2 = next_pos - dxy[dir];
+                                int next_comp_pos2 = next_comp_pos - dxy2[dir];
+                                tmp.push_back(MoveAction(next_pos2, next_pos));
+                                swap(next_pos2, next_pos);
+                                swap(next_comp_pos2, next_comp_pos);
+                            }
+                            for(int i=(int)tmp.size() - 1;i>=0;i--){
+                                // empty_move_operation(field_empty_id[tmp[i].pos2], tmp[i].pos1); // <- これ、1回ずつやらないとダメ？
+                                ret.push_back(tmp[i]);
+                            }
+                            action_count_limit -= (int)tmp.size() + connect_count;
+                            cerr << iter << " " << score << " " << action_count_limit << "\n";
+                            break;
+                        }
+                        empty_move_operation(field_empty_id[initial_pos], pos);
                     }
-                    empty_move_operation(field_empty_id[initial_pos], pos);
+                    if(dist == limit) break;
+                    for(int dir=0;dir<4;dir++){
+                        if(can_move(pos, dir, true) == false) continue;
+                        int npos = pos + dxy[dir];
+                        int comp_npos = comp_pos + dxy2[dir];
+                        if(visited[comp_npos] != 0) continue;
+                        visited[comp_npos] = dir + 1;
+                        que.push({npos, comp_npos, dist+1});
+                    }
                 }
-                if(dist == limit) break;
-                for(int dir=0;dir<4;dir++){
-                    if(can_move(pos, dir) == false) continue;
-                    int npos = pos + dxy[dir];
-                    int comp_npos = comp_pos + dxy2[dir];
-                    if(visited[comp_npos] != 0) continue;
-                    visited[comp_npos] = dir + 1;
-                    que.push({npos, comp_npos, dist+1});
-                }
+
+                for(int i=0;i<lim;i++)visited[i]=false;
             }
 
-            if(next_pos != -1) {
-                vector<MoveAction> tmp;
-                while(visited[next_comp_pos] != -1) {
-                    int dir = visited[next_comp_pos] - 1;
-                    int next_pos2 = next_pos - dxy[dir];
-                    int next_comp_pos2 = next_comp_pos - dxy2[dir];
-                    tmp.push_back(MoveAction(next_pos2, next_pos));
-                    swap(next_pos2, next_pos);
-                    swap(next_comp_pos2, next_comp_pos);
-                }
-                for(int i=(int)tmp.size() - 1;i>=0;i--){
-                    empty_move_operation(field_empty_id[tmp[i].pos2], tmp[i].pos1);
-                    ret.push_back(tmp[i]);
-                }
-                action_count_limit -= (int)tmp.size();
-                cerr << iter << " " << best_score << " " << action_count_limit << "\n";
+            if(!moved) {
+                limit++;
+                dxy2[1] += 2;
+                dxy2[3] -= 2;
             }
 
-            
             iter++;
         }
         return ret;
@@ -754,9 +980,7 @@ struct SparseSolver : public BaseSolver{
 
     Result solve(){
         // create random moves
-        cerr << "BEGIN " << calc_connect_score(_action_count_limit) << "\n";
         auto moves = move();
-        // auto moves = base_move();
 
         // from each computer, connect to right and/or bottom if it will reach the same type
         int action_count_limit = _action_count_limit - (int)moves.size();
@@ -790,8 +1014,8 @@ int main(){
     }
     else if(density > SPARSE){
         cerr << "Solver: Middle" << "\n";
-        BaseSolver s(N, K, field, time);
-        auto ret = s.base_solve();
+        SparseSolver s(N, K, field, time);
+        auto ret = s.solve();
         s.print_answer(ret);
     }
     else {
