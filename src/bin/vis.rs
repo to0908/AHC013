@@ -113,7 +113,7 @@ fn main() {
     let mut index = "<html><body>Seed<br>".to_string();
 
     // 10個ずつ表示
-    let sz = v.len() / 10;
+    let sz = (v.len()+9) / 10;
     for i in 0..sz {
         let mut clus = "".to_string();
         let l = i * 10;
@@ -135,7 +135,7 @@ fn main() {
 
     // これ関数化したい気持ちがあるぜ！
     index = format!("{}<br><br>Dense Solver, Mean Score={}<br>", index, dense_score / dense_v.len() as f32);
-    let sz = dense_v.len() / 10;
+    let sz = (dense_v.len()+9) / 10;
     for i in 0..sz {
         let mut clus = "".to_string();
         let l = i * 10;
@@ -160,7 +160,7 @@ fn main() {
         mean_score = middle_score / middle_v.len() as f32;
     }
     index = format!("{}<br><br>Middle Solver, Mean Score={}<br>", index, mean_score);
-    let sz = middle_v.len() / 10;
+    let sz = (middle_v.len()+9) / 10;
     for i in 0..sz {
         let mut clus = "".to_string();
         let l = i * 10;
@@ -181,7 +181,7 @@ fn main() {
     }
 
     index = format!("{}<br><br>Sparse Solver, Mean Score={}<br>", index, sparse_score / sparse_v.len() as f32);
-    let sz = sparse_v.len() / 10;
+    let sz = (sparse_v.len()+9) / 10;
     for i in 0..sz {
         let mut clus = "".to_string();
         let l = i * 10;
