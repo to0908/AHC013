@@ -668,8 +668,8 @@ struct SparseSolver : public BaseSolver{
         int iter = 0;
         const int limit = 3;
         int dxy2[] = {1, limit*2+1, -1, -limit*2-1};
-        // while(time.elapsed() < TIME_LIMIT) {
-        while(iter < 1000){ // ローカルで動かす時にスコアが安定するように
+        while(time.elapsed() < TIME_LIMIT) {
+        // while(iter < 1000){ // ローカルで動かす時にスコアが安定するように
             int server_id = randint() % (int)server_pos.size();
             int initial_pos = server_pos[server_id];
             int next_pos = -1;
@@ -723,6 +723,7 @@ struct SparseSolver : public BaseSolver{
             
             iter++;
         }
+        cerr << "iter : " << iter << "\n";
         return ret;
     }
 
