@@ -85,7 +85,7 @@ struct BaseSolver {
     int _action_count_limit;
     array<int, 2> rev_field[2500]; // (N+2)**2 cells -> N*N cells (x, y)
     int raw_field[2500]; // (N+2)**2 cells pos -> N*N cells pos
-    bool hasi[2500];
+    int hasi[2500];
     vector<int> field_list; // inner field list (N*N cells)
     Timer time;
 
@@ -118,8 +118,11 @@ struct BaseSolver {
                 field_list.emplace_back(pos);
                 rev_field[pos] = {i-1, j-1};
                 raw_field[pos] = (i-1)*N + j-1;
-                if(i == 1 or i == N or j == 1 or j == N) hasi[pos] = true;
-                else hasi[pos] = false;
+                hasi[pos] = 0;
+                if(i == 1) hasi[pos] += 1;
+                if(i == N) hasi[pos] += 2;
+                if(j == 1) hasi[pos] += 4;
+                if(j == N) hasi[pos] += 8;
             }
             field[i*(N+2)] = -1;
             field[(i+1)*(N+2)-1] = -1;
@@ -187,25 +190,6 @@ struct BaseSolver {
         }
     }
 
-    vector<MoveAction> base_move(int move_limit = -1){
-        vector<MoveAction> ret;
-        if (move_limit == -1) {
-            move_limit = K * 50;
-        }
-
-        // for (int i = 0; i < move_limit; i++) {
-        //     int row = engine() % N;
-        //     int col = engine() % N;
-        //     int dir = engine() % 4;
-        //     if (field[row][col] != '0' && can_move(row, col, dir)) {
-        //         swap(field[row][col], field[row + dx[dir]][col + dy[dir]]);
-        //         ret.emplace_back(row, col, row + dx[dir], col + dy[dir]);
-        //         action_count_limit--;
-        //     }
-        // }
-
-        return ret;
-    }
 
     int can_connect(int pos, int dir) const{
         // can connect -> return npos
@@ -245,9 +229,7 @@ struct BaseSolver {
     }
 
     vector<ConnectAction> base_connect(int action_count_limit){
-        /*
-        無害なConnectだけをやっている
-        */
+
         Timer time;
         vector<ConnectAction> ret;
         UnionFind uf(K*100);
@@ -538,15 +520,6 @@ struct BaseSolver {
         return score;
     }
 
-    Result base_solve(){
-        // create random moves
-        auto moves = base_move(0);
-        int action_count_limit = _action_count_limit - (int)moves.size();
-        // from each computer, connect to right and/or bottom if it will reach the same type
-        auto connects = base_connect(action_count_limit);
-        return Result(moves, connects);
-    }
-
     void print_answer(const Result &res){
         cout << res.move.size() << "\n";
         for (auto m : res.move) {
@@ -787,17 +760,10 @@ int main(){
 
     double density = double(K*100) / double(N*N);
     const double DENSE = 0.55;
-    const double SPARSE = 0.55;
     if(density >= DENSE) {
         cerr << "Solver: Dense" << "\n";
         DenseSolver s(N, K, field, time);
         auto ret = s.solve();
-        s.print_answer(ret);
-    }
-    else if(density > SPARSE){
-        cerr << "Solver: Middle" << "\n";
-        BaseSolver s(N, K, field, time);
-        auto ret = s.base_solve();
         s.print_answer(ret);
     }
     else {
