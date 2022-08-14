@@ -612,12 +612,11 @@ struct DenseSolver : public BaseSolver{
         int score = 0;
         // 実験として、雑なDFSでやる。これで上手くいくならビームを撃つ
         int iter = 0;
-        int emp_idx = 0;
-        while(time.elapsed() < TIME_LIMIT) {
-        // while(iter < 100){ // ローカルで動かす時にスコアが安定するように
+        // while(time.elapsed() < TIME_LIMIT) {
+        while(iter < 100){ // ローカルで動かす時にスコアが安定するように
             int limit = randint() % 7 + 1;
             if(limit >= action_count_limit) continue;
-            // int emp_idx = randint() % (int)empty_pos.size(); // TODO: <- emp_idxはrandomじゃなくて順番でええか
+            int emp_idx = randint() % (int)empty_pos.size();
             auto v = dfs(limit, emp_idx, -1, action_count_limit - limit);
             if(chmax(score, v[0])) {
                 action_count_limit -= (int)v.size() - 1;
@@ -630,7 +629,6 @@ struct DenseSolver : public BaseSolver{
                 cerr << iter << " " << score << " " << action_count_limit << "\n";
             }
             emp_idx++;
-            if(emp_idx == (int)empty_pos.size())emp_idx=0;
             iter++;
         }
         return ret;
@@ -670,10 +668,9 @@ struct SparseSolver : public BaseSolver{
         int iter = 0;
         const int limit = 3;
         int dxy2[] = {1, limit*2+1, -1, -limit*2-1};
-        int server_id = 0;
-        while(time.elapsed() < TIME_LIMIT) {
-        // while(iter < 100){ // ローカルで動かす時にスコアが安定するように
-            // int server_id = randint() % (int)server_pos.size(); // TODO: <- emp_idxはrandomじゃなくて順番でええか
+        // while(time.elapsed() < TIME_LIMIT) {
+        while(iter < 1000){ // ローカルで動かす時にスコアが安定するように
+            int server_id = randint() % (int)server_pos.size();
             int initial_pos = server_pos[server_id];
             int next_pos = -1;
             int next_comp_pos = -1;
@@ -725,8 +722,6 @@ struct SparseSolver : public BaseSolver{
 
             
             iter++;
-            server_id++;
-            if(server_id == K * 100) server_id = 0;
         }
         return ret;
     }
