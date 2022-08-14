@@ -1,3 +1,4 @@
+// #define _GLIBCXX_DEBUG
 #include<bits/stdc++.h> 
 using namespace std;
 typedef long long ll;
@@ -120,13 +121,7 @@ struct SparseSolver {
                 if(j == N) hasi[pos] += 8;
             }
         }
-        for(int i=0;i<N+2;i+=N+1){
-            for(int j=0;j<N+2;j++){
-                int pos = i*(N+2)+j;
-                field[pos] = -1;
-                field_server_id[pos] = -1;
-            }
-        }
+
         // RDLU
         dxy[0] = 1;
         dxy[1] = N+2;
@@ -207,7 +202,7 @@ struct SparseSolver {
                     int pos_x = get_server_pos(now, (dir==0)?3:2);
                     int pos_y = get_server_pos(now, (dir==0)?1:0);
                     int x = field[pos_x], y = field[pos_y];
-                    if(x > 0 and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
+                    if(x > 0 and x < USED and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
                         is_only_this_pair = false;
                         break;
                     }
@@ -236,9 +231,7 @@ struct SparseSolver {
                             int pos_x = get_server_pos(now, (dir==0)?3:2);
                             int pos_y = get_server_pos(now, (dir==0)?1:0);
                             int x = field[pos_x], y = field[pos_y];
-                            assert(x != -1);
-                            assert(y != -1);
-                            if(x > 0 and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
+                            if(x > 0 and x < USED and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
                                 score -= uf.size(field_server_id[pos_x]) * uf.size(field_server_id[pos_y]);
                             }
                             now += dxy[dir];
@@ -349,13 +342,8 @@ struct SparseSolver {
 
     Result solve(){
         auto moves = move();
-
-        // from each computer, connect to right and/or bottom if it will reach the same type
         int action_count_limit = _action_count_limit - (int)moves.size();
 
-        // for(int i=0;i<(N+2)*(N+2);i++) {
-        //     if()
-        // }
         auto connects = connect(action_count_limit);
 
         return Result(moves, connects);
