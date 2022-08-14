@@ -243,7 +243,6 @@ struct BaseSolver {
             if (field[npos] == field[pos]) {
                 return ConnectAction(pos, npos);
             }
-            cerr << "---- A " << field[pos] << " " << dir << " " << field[npos] << "\n";
             assert(field[npos] == 0 or field[npos] == ((dir&1)?USED_VERTICAL[field[pos]]:USED_HORIZONTAL[field[pos]]));
             field[npos] = (dir&1)?USED_VERTICAL[field[pos]]:USED_HORIZONTAL[field[pos]];
             npos += dxy[dir];
@@ -914,7 +913,7 @@ struct SparseSolver : public BaseSolver{
                 else {
                     bool ho = false;
                     bool va = false;
-                    if(ho and va) condition=-1;
+                    if(ho and va) condition = -1;
                 } 
                 if(condition == -1) continue;
 
@@ -929,6 +928,8 @@ struct SparseSolver : public BaseSolver{
                     que.pop();
                     if(dist >= action_count_limit) break;
                     if(dist) {
+                        int tmp_emp = field[pos];
+                        field[pos] = 0;
                         empty_move_operation(field_empty_id[pos], initial_pos);
                         auto [score, connect_count] = simulate_move(initial_pos, pos, action_count_limit - dist, uf, condition);
                         if(score>0) {
@@ -952,6 +953,7 @@ struct SparseSolver : public BaseSolver{
                             break;
                         }
                         empty_move_operation(field_empty_id[initial_pos], pos);
+                        field[pos] = tmp_emp;
                     }
                     if(dist == limit) break;
                     for(int dir=0;dir<4;dir++){
