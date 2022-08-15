@@ -82,7 +82,7 @@ struct Result {
 
 
 // パラメータ
-const int TIME_LIMIT = 2800;
+const int TIME_LIMIT = 2850;
 int target_range = 5;
 
 // K=2 かつ 15≤N≤39
