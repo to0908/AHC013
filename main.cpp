@@ -82,8 +82,8 @@ struct Result {
 
 
 // パラメータ
-const int TIME_LIMIT = 2800;
-const int target_range = 3;
+const int TIME_LIMIT = 28000;
+int target_range = 3;
 const int sparse_breadth = 10;
 const int sparse_search_limit = 5;
 
@@ -512,7 +512,7 @@ struct BaseSolver {
 
         // 貪欲にスコアが高いものから連結 (有害)
         // K=2では十分回るので正確性が重視され、K>=3ではより深く(Moveを多く使う)方が重視されるので省く、みたいな？
-        if(Kis2){
+        {
             vector<array<int, 4>> edge;
             for(auto it = connect_pair.begin(); it != connect_pair.end();++it){
                 auto &[pos, npos, dir] = *it;
@@ -868,6 +868,7 @@ int main(){
         s.print_answer(ret);
     }
     else {
+        if(K == 5) target_range = 2;
         cerr << "Solver: Sparse" << "\n";
         SparseSolver s(N, K, field, time);
         auto ret = s.solve();
