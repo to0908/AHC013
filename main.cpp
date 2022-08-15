@@ -98,6 +98,8 @@ static constexpr int SPARSE_BREADTH[4] = {15, 10, 10, 15};
 static constexpr int SPARSE_SEARCH_LIMIT[4] = {15, 12, 10, 12}; 
 int sparse_breadth;
 int sparse_search_limit;
+const double DENSE_THRESHOLD = 0.65; // TODO: 0.65がベスト?
+
 
 struct BaseSolver {
     const int max_iter = 1000;
@@ -872,8 +874,7 @@ int main(){
     }
 
     double density = double(K*100) / double(N*N);
-    const double DENSE = 0.65; // TODO: 0.65がベスト?
-    if(density >= DENSE) {
+    if(density >= DENSE_THRESHOLD) {
         cerr << "Solver: Dense" << "\n";
         // DenseSolver s(N, K, field, time);
         // auto ret = s.solve();
@@ -882,7 +883,7 @@ int main(){
         cout << 0 << endl;
     }
     else {
-        if(K == 5) target_range = 3; // 2 or 3
+        if(K == 5) target_range = 3; // 3
         
         sparse_breadth = SPARSE_BREADTH[K-2];
         sparse_search_limit = SPARSE_SEARCH_LIMIT[K-2];
