@@ -77,7 +77,6 @@ struct Result {
 };
 
 struct BaseSolver {
-    const int max_iter = 1000;
     static constexpr int USED = 9;
     const int TIME_LIMIT = 2800;
     const int TIME_LIMIT_CONNECT = 2850;
@@ -619,8 +618,7 @@ struct DenseSolver : public BaseSolver{
         int score = 0;
         // 実験として、雑なDFSでやる。これで上手くいくならビームを撃つ
         int iter = 0;
-        // while(time.elapsed() < TIME_LIMIT) {
-        while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
+        while(time.elapsed() < TIME_LIMIT) {
             int limit = randint() % 5 + 1;
             if(limit >= action_count_limit) continue;
             int emp_idx = randint() % (int)empty_pos.size();
@@ -675,8 +673,7 @@ struct SparseSolver : public BaseSolver{
         int iter = 0;
         const int limit = 3;
         int dxy2[] = {1, limit*2+1, -1, -limit*2-1};
-        // while(time.elapsed() < TIME_LIMIT) {
-        while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
+        while(time.elapsed() < TIME_LIMIT) {
             int server_id = randint() % (int)server_pos.size();
             int initial_pos = server_pos[server_id];
             int next_pos = -1;
