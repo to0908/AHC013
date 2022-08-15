@@ -85,6 +85,7 @@ struct BaseSolver {
     static constexpr int USED = 9;
     const int TIME_LIMIT = 2800;
     const int TIME_LIMIT_CONNECT = 2850;
+    const int target_range = 3;
     int dxy[4];
 
     int N, K;
@@ -102,12 +103,15 @@ struct BaseSolver {
     int field_empty_id[2500]; // field_empty_id[pos] := -1/empty_id
     vector<int> empty_pos; // empty_pos[empty_id] := pos
     array<int,2> vertical_server_pair[2][2500]; // [dir(0/1)][pos] := {pos1, pos2} (empty or server)
+    vector<int> calc_target_server_pos;
+    int calc_target_field_server_id[2500]; // field_server_id[pos] := -1/server_id
 
     BaseSolver(int N, int K, const vector<string> &field_, Timer &time) : 
         N(N), K(K), _action_count_limit(K * 100), time(time){
         Kis2 = (K==2);
         int cnt = 0;
         server_pos.resize(K*100, -1);
+        for(int i=0;i<2500;i++)calc_target_field_server_id[i]=-1;
         for(int i=1;i<=N;i++){
             for(int j=1;j<=N;j++){
                 int pos = i*(N+2)+j;
@@ -117,6 +121,10 @@ struct BaseSolver {
                     field_server_id[pos] = cnt;
                     field_empty_id[pos] = -1;
                     cnt++;
+                    if(field[pos] <= target_range){
+                        calc_target_field_server_id[pos] = calc_target_server_pos.size();
+                        calc_target_server_pos.emplace_back(pos);
+                    }
                 }
                 else {
                     field_empty_id[pos] = empty_pos.size();
@@ -177,8 +185,10 @@ struct BaseSolver {
         swap(field[pos], field[npos]);
         swap(field_server_id[pos], field_server_id[npos]);
         swap(field_empty_id[pos], field_empty_id[npos]);
+        swap(calc_target_field_server_id[pos], calc_target_field_server_id[npos]);
         empty_pos[emp_id] = npos;
         server_pos[field_server_id[pos]] = pos;
+        if(field[pos] <= target_range) calc_target_server_pos[calc_target_field_server_id[pos]] = pos;
 
         assert(field_server_id[pos] >= 0);
         assert(field_server_id[npos] == -1);
@@ -403,7 +413,7 @@ struct BaseSolver {
 
         // 無害な連結
         vector<array<int,3>> connect_pair;
-        for(auto pos : server_pos){
+        for(auto pos : calc_target_server_pos){
             for (int dir = 0; dir < 2; dir++) {
                 int npos = can_connect(pos, dir);
                 if(npos == -1) continue;
