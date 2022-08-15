@@ -80,12 +80,17 @@ struct Result {
     Result(const vector<MoveAction> &move, const vector<ConnectAction> &con) : move(move), connect(con) {}
 };
 
+
+// パラメータ
+const int TIME_LIMIT = 2800;
+const int target_range = 3;
+const int sparse_breadth = 10;
+const int sparse_search_limit = 5;
+
 struct BaseSolver {
     const int max_iter = 1000;
     static constexpr int USED = 9;
-    const int TIME_LIMIT = 2800;
     const int TIME_LIMIT_CONNECT = 2850;
-    const int target_range = 3;
     int dxy[4];
 
     int N, K;
@@ -715,8 +720,6 @@ struct SparseSolver : public BaseSolver{
     }
 
 private:
-    const int breadth = 6;
-    const int search_limit = 5;
 
     struct State{
         int score;
@@ -778,7 +781,6 @@ private:
         // int limit = 1;
         int depth_cnt = 0;
         while(time.elapsed() < TIME_LIMIT) {
-            if(depth_cnt==0)cerr << depth << "\n";
             if(depth == max_move_size) break;
             if(pq[depth].empty()) {
                 depth++;
@@ -798,7 +800,7 @@ private:
                 empty_move_operation(field_empty_id[mv.pos2], mv.pos1);
             }
 
-            for(int iter=0;iter<search_limit;iter++){
+            for(int iter=0;iter<sparse_search_limit;iter++){
                 int server_id = randint() % (int)server_pos.size();
                 int pos = server_pos[server_id];
                 for(int dir=0;dir<4;dir++) {
@@ -825,7 +827,7 @@ private:
                 empty_move_operation(field_empty_id[itr->pos1], itr->pos2);
             }
 
-            if(depth_cnt == breadth) {
+            if(depth_cnt == sparse_breadth) {
                 depth_cnt = 0;
                 depth++;
             }
