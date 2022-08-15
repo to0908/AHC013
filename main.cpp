@@ -82,10 +82,22 @@ struct Result {
 
 
 // パラメータ
-const int TIME_LIMIT = 28000;
-int target_range = 3;
-const int sparse_breadth = 10;
-const int sparse_search_limit = 5;
+const int TIME_LIMIT = 2800;
+int target_range = 5;
+
+// K=2 かつ 15≤N≤39
+// K=3 かつ 18≤N≤42
+// K=4 かつ 21≤N≤45
+// K=5 かつ 24≤N≤48
+static constexpr int N_MIN[4] = {15,18,21,24};
+static constexpr int N_MAX[4] = {39,42,45,48};
+
+// K=5ではtarget_rangeを絞っているので、逆にパラメータを大きくできる
+// Nと実行時間にはかなり強い相関があるため、逆を言えばNが小さいケースではパラメータを大きくできる
+static constexpr int SPARSE_BREADTH[4] = {15, 10, 10, 15};
+static constexpr int SPARSE_SEARCH_LIMIT[4] = {15, 12, 10, 12}; 
+int sparse_breadth;
+int sparse_search_limit;
 
 struct BaseSolver {
     const int max_iter = 1000;
@@ -863,12 +875,46 @@ int main(){
     const double DENSE = 0.65; // TODO: 0.65がベスト?
     if(density >= DENSE) {
         cerr << "Solver: Dense" << "\n";
-        DenseSolver s(N, K, field, time);
-        auto ret = s.solve();
-        s.print_answer(ret);
+        // DenseSolver s(N, K, field, time);
+        // auto ret = s.solve();
+        // s.print_answer(ret);
+        cout << 0 << endl;
+        cout << 0 << endl;
     }
     else {
         if(K == 5) target_range = 2;
+        
+        sparse_breadth = SPARSE_BREADTH[K-2];
+        sparse_search_limit = SPARSE_SEARCH_LIMIT[K-2];
+
+        int margin = N_MAX[K-2] - N;
+        int t = (K>=4)?3:1;
+        if(K == 2){
+            int tmp = margin;
+            margin -= 1;
+            if(margin >= 15) margin *= 1.5;
+            else if(margin <= 5) margin += 2;
+            if(tmp >= 18) margin += 2;
+        }
+        else if(K == 3){
+            // margin *= 0.9;
+            if(margin <= 4) margin += 2;
+            margin -= 2;
+            if(margin >= 10) margin -= 2;
+        }
+        else if(K == 4){
+            if(margin >= 15) margin += 12;
+            margin -= 3;
+        }
+        else if(K == 5){
+            if(margin >= 18) margin += 7;
+            else if(margin >= 15) margin += 6;
+            else margin -= 3;
+        }
+        margin -= t;
+        sparse_breadth += margin / t;
+        sparse_search_limit += margin / t;
+
         cerr << "Solver: Sparse" << "\n";
         SparseSolver s(N, K, field, time);
         auto ret = s.solve();
