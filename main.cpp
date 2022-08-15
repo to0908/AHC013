@@ -1,6 +1,10 @@
+// #define _GLIBCXX_DEBUG
+// #pragma GCC target("avx2")
+// #pragma GCC optimize("O3")
+// #pragma GCC optimize("unroll-loops")
 #include<bits/stdc++.h> 
 using namespace std;
-typedef long long ll;
+typedef unsigned long long ll;
 #define all(x) (x).begin(),(x).end()
 template<typename T1,typename T2> bool chmin(T1 &a,T2 b){if(a<=b)return 0; a=b; return 1;}
 template<typename T1,typename T2> bool chmax(T1 &a,T2 b){if(a>=b)return 0; a=b; return 1;}
@@ -77,7 +81,7 @@ struct Result {
 };
 
 struct BaseSolver {
-    const int max_iter = 0;
+    const int max_iter = 1000;
     static constexpr int USED = 9;
     const int TIME_LIMIT = 2800;
     const int TIME_LIMIT_CONNECT = 2850;
@@ -689,7 +693,7 @@ struct SparseSolver : public BaseSolver{
 
 private:
     const int breadth = 10;
-    const int search_limit = 10;
+    const int search_limit = 5;
 
     struct State{
         int score;
@@ -719,6 +723,14 @@ private:
     }
 
     ll calc_hash(ll hash, MoveAction &move) {
+        assert(field[move.pos1] < 6);
+        assert(field[move.pos2] < 6);
+        assert(field[move.pos2] >= 0);
+        assert(field[move.pos1] >= 0);
+        assert(move.pos1 < (N+2)*(N+2));
+        assert(move.pos2 < (N+2)*(N+2));
+        assert(move.pos2 >= 0);
+        assert(move.pos1 >= 0);
         hash ^= rand[move.pos1][field[move.pos1]];
         hash ^= rand[move.pos2][field[move.pos2]];
         hash ^= rand[move.pos2][field[move.pos1]];
@@ -729,8 +741,9 @@ private:
     vector<MoveAction> move(){
         vector<MoveAction> ret;
 
-        priority_queue<State> pq[K*100+1];
-        unordered_map<ll,bool> used[K*100+1];
+        const int max_move_size = K * 100 - 100;
+        priority_queue<State> pq[max_move_size + 1];
+        unordered_map<ll, bool> used[max_move_size + 1];
 
         int best_score = 0;
         ll hash = field_hash();
@@ -742,19 +755,20 @@ private:
         // int limit = 1;
         int depth_cnt = 0;
         while(time.elapsed() < TIME_LIMIT) {
+            if(depth == max_move_size) break;
             if(pq[depth].empty()) {
                 depth++;
-                if(depth == 100 * K) break;
+                depth_cnt = 0;
                 continue;
             }
             State state = pq[depth].top();
             pq[depth].pop();
             if(depth_cnt == 0 and chmax(best_score, state.score)) {
+                cerr << depth << " " << state.score << " " << state.field_hash << "\n";
                 best_move = state.move;
             }
             depth_cnt++;
 
-            cerr << depth << " " << state.score << " " << state.field_hash << "\n";
             for(auto &mv : state.move) {
                 // cerr << "-> " << mv.pos1 << " " << mv.pos2 << "\n";
                 empty_move_operation(field_empty_id[mv.pos2], mv.pos1);
@@ -780,6 +794,7 @@ private:
                     state.move.pop_back();
                 }
             }
+
             
             for (auto itr = state.move.rbegin(); itr != state.move.rend(); ++itr) {
                 // cerr << "<- " << itr->pos1 << " " << itr->pos2 << "\n";
@@ -789,19 +804,18 @@ private:
             if(depth_cnt == breadth) {
                 depth_cnt = 0;
                 depth++;
-                // if(depth == 100 * K) break;
             }
         }
 
 
         for(int i=depth;i<depth+2;i++) {
+            if(i >= max_move_size) break;
             if(pq[i].empty()) continue;
             State state = pq[i].top();
             if(chmax(best_score, state.score)) {
+                cerr << i << " " << state.score << " " << state.field_hash << "\n";
                 best_move = state.move;
             }
-            depth++;
-            if(depth == 100 * K)break;
         }
         return best_move;
     }
@@ -820,12 +834,14 @@ int main(){
     }
 
     double density = double(K*100) / double(N*N);
-    const double DENSE = 0.65;
+    const double DENSE = 0.55; // TODO: 0.65がベスト
     if(density >= DENSE) {
         cerr << "Solver: Dense" << "\n";
-        DenseSolver s(N, K, field, time);
-        auto ret = s.solve();
-        s.print_answer(ret);
+        // DenseSolver s(N, K, field, time);
+        // auto ret = s.solve();
+        // s.print_answer(ret);
+        cout << 0 << endl;
+        cout << 0 << endl;
     }
     else {
         cerr << "Solver: Sparse" << "\n";
@@ -833,8 +849,6 @@ int main(){
         auto ret = s.solve();
         s.print_answer(ret);
     }
-
-    // while(time.elapsed() < 2800)continue;
 
     cerr << "Time = " << time.elapsed() << "\n";
 }
