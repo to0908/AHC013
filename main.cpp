@@ -631,20 +631,13 @@ struct DenseSolver : public BaseSolver{
 
     vector<MoveAction> move(){
         vector<MoveAction> ret;
-        /*
-        State:
-        - field[(N+2)*(N+2)] <- *int (?)
-        - field_hash <- long long (デカいので衝突が怖い)
-        - 空白の位置 <- vector<int> ? (長さは固定なので) *intでいけるならそっちのが良い 
-        - 操作列 <- vector<int> ?
-        - Score <- int
-        */
+
         int action_count_limit = _action_count_limit;
         int score = 0;
         // 実験として、雑なDFSでやる。これで上手くいくならビームを撃つ
         int iter = 0;
-        // while(time.elapsed() < TIME_LIMIT) {
-        while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
+        while(time.elapsed() < TIME_LIMIT) {
+        // while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
             int limit = randint() % 5 + 1;
             if(limit >= action_count_limit) continue;
             int emp_idx = randint() % (int)empty_pos.size();
@@ -712,7 +705,7 @@ struct SparseSolver : public BaseSolver{
     }
 
 private:
-    const int breadth = 10;
+    const int breadth = 6;
     const int search_limit = 5;
 
     struct State{
@@ -855,14 +848,12 @@ int main(){
     }
 
     double density = double(K*100) / double(N*N);
-    const double DENSE = 0.55; // TODO: 0.65がベスト?
+    const double DENSE = 0.65; // TODO: 0.65がベスト?
     if(density >= DENSE) {
         cerr << "Solver: Dense" << "\n";
-        // DenseSolver s(N, K, field, time);
-        // auto ret = s.solve();
-        // s.print_answer(ret);
-        cout << 0 << endl;
-        cout << 0 << endl;
+        DenseSolver s(N, K, field, time);
+        auto ret = s.solve();
+        s.print_answer(ret);
     }
     else {
         cerr << "Solver: Sparse" << "\n";
