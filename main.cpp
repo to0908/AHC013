@@ -882,7 +882,7 @@ int main(){
         cout << 0 << endl;
     }
     else {
-        if(K == 5) target_range = 2;
+        if(K == 5) target_range = 3; // 2 or 3
         
         sparse_breadth = SPARSE_BREADTH[K-2];
         sparse_search_limit = SPARSE_SEARCH_LIMIT[K-2];
@@ -907,9 +907,9 @@ int main(){
             margin -= 3;
         }
         else if(K == 5){
-            if(margin >= 18) margin += 7;
-            else if(margin >= 15) margin += 6;
-            else margin -= 3;
+            if(margin >= 18) margin += 4;
+            else if(margin >= 15) margin += 3;
+            else margin -= 6;
         }
         margin -= t;
         sparse_breadth += margin / t;
