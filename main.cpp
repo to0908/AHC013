@@ -77,7 +77,7 @@ struct Result {
 };
 
 struct BaseSolver {
-    const int max_iter = 1000;
+    const int max_iter = 0;
     static constexpr int USED = 9;
     const int TIME_LIMIT = 2800;
     const int TIME_LIMIT_CONNECT = 2850;
@@ -658,94 +658,152 @@ struct DenseSolver : public BaseSolver{
 
 struct SparseSolver : public BaseSolver{
 
-    SparseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
+    mt19937_64 engine;
+    ll rand[2500][6];
 
-    vector<MoveAction> move(){
-        vector<MoveAction> ret;
-        /*
-        State:
-        - field[(N+2)*(N+2)] <- *int (?)
-        - field_hash <- long long (デカいので衝突が怖い)
-        - graph <- vector<vector<array<int,2>>> (vector<Graph>, Graph:=edge(pos1,pos2))
-        - 操作列 <- vector<int> ?
-        - Score <- int
-        */
-        int action_count_limit = _action_count_limit;
-        int best_score = calc_connect_score(0);
-        int iter = 0;
-        const int limit = 3;
-        int dxy2[] = {1, limit*2+1, -1, -limit*2-1};
-        // while(time.elapsed() < TIME_LIMIT) {
-        while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
-            int server_id = randint() % (int)server_pos.size();
-            int initial_pos = server_pos[server_id];
-            int next_pos = -1;
-            int next_comp_pos = -1;
-            int visited[(limit*2+1)*(limit*2+1)] = {};
-            queue<array<int,3>> que;
-            que.push({initial_pos, limit*(limit+1) + limit, 0});
-            visited[limit*(limit+1) + limit] = -1;
-            while(que.size()){
-                auto [pos, comp_pos, dist] = que.front();
-                que.pop();
-                if(dist >= action_count_limit) break;
-                if(dist) {
-                    empty_move_operation(field_empty_id[pos], initial_pos);
-                    int s = calc_connect_score(action_count_limit - dist);
-                    if(chmax(best_score, s)) {
-                        next_pos = pos;
-                        next_comp_pos = comp_pos;
-                    }
-                    empty_move_operation(field_empty_id[initial_pos], pos);
-                }
-                if(dist == limit) break;
-                for(int dir=0;dir<4;dir++){
-                    if(can_move(pos, dir) == false) continue;
-                    int npos = pos + dxy[dir];
-                    int comp_npos = comp_pos + dxy2[dir];
-                    if(visited[comp_npos] != 0) continue;
-                    visited[comp_npos] = dir + 1;
-                    que.push({npos, comp_npos, dist+1});
-                }
+    SparseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {
+        random_device seed_gen;
+        engine.seed(seed_gen());
+        for(int i=0;i<(N+2)*(N+2);i++){
+            for(int j=0;j<6;j++){
+                rand[i][j] = engine();
             }
-
-            if(next_pos != -1) {
-                vector<MoveAction> tmp;
-                while(visited[next_comp_pos] != -1) {
-                    int dir = visited[next_comp_pos] - 1;
-                    int next_pos2 = next_pos - dxy[dir];
-                    int next_comp_pos2 = next_comp_pos - dxy2[dir];
-                    tmp.push_back(MoveAction(next_pos2, next_pos));
-                    swap(next_pos2, next_pos);
-                    swap(next_comp_pos2, next_comp_pos);
-                }
-                for(int i=(int)tmp.size() - 1;i>=0;i--){
-                    empty_move_operation(field_empty_id[tmp[i].pos2], tmp[i].pos1);
-                    ret.push_back(tmp[i]);
-                }
-                action_count_limit -= (int)tmp.size();
-                cerr << iter << " " << best_score << " " << action_count_limit << "\n";
-            }
-
-            
-            iter++;
         }
-        cerr << "iter : " << iter << "\n";
-        return ret;
     }
+
 
     Result solve(){
         // create random moves
         cerr << "BEGIN " << calc_connect_score(_action_count_limit) << "\n";
         auto moves = move();
-        // auto moves = base_move();
 
-        // from each computer, connect to right and/or bottom if it will reach the same type
         int action_count_limit = _action_count_limit - (int)moves.size();
+        for(auto &mv : moves) {
+            empty_move_operation(field_empty_id[mv.pos2], mv.pos1);
+        }
 
         auto connects = base_connect(action_count_limit);
 
         return Result(moves, connects);
+    }
+
+private:
+    const int breadth = 10;
+    const int search_limit = 10;
+
+    struct State{
+        int score;
+        ll field_hash;
+        // TODO: int field_id;
+        vector<MoveAction> move;
+
+        State(int score, ll field_hash, vector<MoveAction> &move) : 
+            score(score), field_hash(field_hash), move(move) {}
+
+        // scoreが大きい順にソートしたい
+        bool operator<(const State &s) const{
+            return score < s.score;
+        }
+    };
+
+    ll field_hash() {
+        ll ret = 0;
+        for(int i=1;i<=N;i++){
+            for(int j=1;j<=N;j++) {
+                int pos = i * (N+2) + j;
+                int x = field[pos];
+                ret ^= rand[pos][x];
+            }
+        }
+        return ret;
+    }
+
+    ll calc_hash(ll hash, MoveAction &move) {
+        hash ^= rand[move.pos1][field[move.pos1]];
+        hash ^= rand[move.pos2][field[move.pos2]];
+        hash ^= rand[move.pos2][field[move.pos1]];
+        hash ^= rand[move.pos1][field[move.pos2]];
+        return hash;
+    }
+
+    vector<MoveAction> move(){
+        vector<MoveAction> ret;
+
+        priority_queue<State> pq[K*100+1];
+        unordered_map<ll,bool> used[K*100+1];
+
+        int best_score = 0;
+        ll hash = field_hash();
+        vector<MoveAction> best_move;
+        State initial_state = State(0, hash, best_move);
+        pq[0].push(initial_state);
+
+        int depth = 0;
+        // int limit = 1;
+        int depth_cnt = 0;
+        while(time.elapsed() < TIME_LIMIT) {
+            if(pq[depth].empty()) {
+                depth++;
+                if(depth == 100 * K) break;
+                continue;
+            }
+            State state = pq[depth].top();
+            pq[depth].pop();
+            if(depth_cnt == 0 and chmax(best_score, state.score)) {
+                best_move = state.move;
+            }
+            depth_cnt++;
+
+            cerr << depth << " " << state.score << " " << state.field_hash << "\n";
+            for(auto &mv : state.move) {
+                // cerr << "-> " << mv.pos1 << " " << mv.pos2 << "\n";
+                empty_move_operation(field_empty_id[mv.pos2], mv.pos1);
+            }
+
+            for(int iter=0;iter<search_limit;iter++){
+                int server_id = randint() % (int)server_pos.size();
+                int pos = server_pos[server_id];
+                for(int dir=0;dir<4;dir++) {
+                    if(can_move(pos, dir) == false) continue;
+                    int npos = pos + dxy[dir];
+                    MoveAction mv = MoveAction(pos, npos);
+                    int nhash = calc_hash(state.field_hash, mv);
+                    if(used[depth+1][nhash]) continue;
+                    used[depth+1][nhash]=1;
+
+                    empty_move_operation(field_empty_id[npos], pos);
+                    int nscore = calc_connect_score(_action_count_limit - (int)state.move.size() - 1);
+                    empty_move_operation(field_empty_id[pos], npos);
+
+                    state.move.push_back(mv);
+                    pq[depth+1].push(State(nscore, nhash, state.move));
+                    state.move.pop_back();
+                }
+            }
+            
+            for (auto itr = state.move.rbegin(); itr != state.move.rend(); ++itr) {
+                // cerr << "<- " << itr->pos1 << " " << itr->pos2 << "\n";
+                empty_move_operation(field_empty_id[itr->pos1], itr->pos2);
+            }
+
+            if(depth_cnt == breadth) {
+                depth_cnt = 0;
+                depth++;
+                // if(depth == 100 * K) break;
+            }
+        }
+
+
+        for(int i=depth;i<depth+2;i++) {
+            if(pq[i].empty()) continue;
+            State state = pq[i].top();
+            if(chmax(best_score, state.score)) {
+                best_move = state.move;
+            }
+            depth++;
+            if(depth == 100 * K)break;
+        }
+        return best_move;
     }
 };
 
