@@ -77,8 +77,10 @@ struct Result {
 };
 
 struct BaseSolver {
+    const int max_iter = 1000;
     static constexpr int USED = 9;
     const int TIME_LIMIT = 2800;
+    const int TIME_LIMIT_CONNECT = 2850;
     int dxy[4];
 
     int N, K;
@@ -379,6 +381,11 @@ struct BaseSolver {
             swap(ret, nret);
         }
 
+        // // TODO: 時間いっぱいConnectを切ってMoveで再Connect
+        // while(time.elapsed() < TIME_LIMIT_CONNECT){
+        //     // TODO
+        // }
+
         cerr << "Connect Time = " << time.elapsed() << "\n";
         return ret;
     }
@@ -613,8 +620,8 @@ struct DenseSolver : public BaseSolver{
         // 実験として、雑なDFSでやる。これで上手くいくならビームを撃つ
         int iter = 0;
         // while(time.elapsed() < TIME_LIMIT) {
-        while(iter < 100){ // ローカルで動かす時にスコアが安定するように
-            int limit = randint() % 7 + 1;
+        while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
+            int limit = randint() % 5 + 1;
             if(limit >= action_count_limit) continue;
             int emp_idx = randint() % (int)empty_pos.size();
             auto v = dfs(limit, emp_idx, -1, action_count_limit - limit);
@@ -668,8 +675,8 @@ struct SparseSolver : public BaseSolver{
         int iter = 0;
         const int limit = 3;
         int dxy2[] = {1, limit*2+1, -1, -limit*2-1};
-        while(time.elapsed() < TIME_LIMIT) {
-        // while(iter < 1000){ // ローカルで動かす時にスコアが安定するように
+        // while(time.elapsed() < TIME_LIMIT) {
+        while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
             int server_id = randint() % (int)server_pos.size();
             int initial_pos = server_pos[server_id];
             int next_pos = -1;
@@ -755,7 +762,7 @@ int main(){
     }
 
     double density = double(K*100) / double(N*N);
-    const double DENSE = 0.55;
+    const double DENSE = 0.65;
     if(density >= DENSE) {
         cerr << "Solver: Dense" << "\n";
         DenseSolver s(N, K, field, time);
