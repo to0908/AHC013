@@ -88,6 +88,7 @@ struct BaseSolver {
     int dxy[4];
 
     int N, K;
+    bool Kis2;
     int _action_count_limit;
     array<int, 2> rev_field[2500]; // (N+2)**2 cells -> N*N cells (x, y)
     int raw_field[2500]; // (N+2)**2 cells pos -> N*N cells pos
@@ -104,6 +105,7 @@ struct BaseSolver {
 
     BaseSolver(int N, int K, const vector<string> &field_, Timer &time) : 
         N(N), K(K), _action_count_limit(K * 100), time(time){
+        Kis2 = (K==2);
         int cnt = 0;
         server_pos.resize(K*100, -1);
         for(int i=1;i<=N;i++){
@@ -494,7 +496,8 @@ struct BaseSolver {
 
 
         // 貪欲にスコアが高いものから連結 (有害)
-        if(0){
+        // K=2では十分回るので正確性が重視され、K>=3ではより深く(Moveを多く使う)方が重視されるので省く、みたいな？
+        if(Kis2){
             vector<array<int, 4>> edge;
             for(auto it = connect_pair.begin(); it != connect_pair.end();++it){
                 auto &[pos, npos, dir] = *it;
@@ -852,7 +855,7 @@ int main(){
     }
 
     double density = double(K*100) / double(N*N);
-    const double DENSE = 0.55; // TODO: 0.65がベスト
+    const double DENSE = 0.55; // TODO: 0.65がベスト?
     if(density >= DENSE) {
         cerr << "Solver: Dense" << "\n";
         // DenseSolver s(N, K, field, time);
