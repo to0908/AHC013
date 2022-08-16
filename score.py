@@ -75,53 +75,55 @@ if __name__ == '__main__':
     move_count = np.array(move_count)
     
     print('-------------')
-    print(f'Dense, N={(move_count[:, 7] == 1).sum()}')
-    fig = plt.figure(figsize = (16, 7), facecolor='lightblue')
-    ax = [fig.add_subplot(1, 4, i+1) for i in range(4)]
-    for i in range(2, 6) : 
-        idx = np.logical_and(move_count[:, 0] == i, move_count[:, 7] == 1)
-        mean = move_count[idx, 1].mean()
-        rem = move_count[idx, 2].mean()
-        rem_max = move_count[idx, 2].max()
-        score = move_count[idx, 3].mean()
-        ti = move_count[idx, 5].mean()
-        n_time_corr = np.corrcoef(move_count[idx, 5], move_count[idx, 6])[0,1]
-        time_max = move_count[idx, 5].max()
-        print(f'K = {i} : MoveCount = {round(mean,1)}, 残り = {round(rem,1)}, Score = {round(score,1)}, MeanTime = {round(ti,1)}, MaxTime = {round(time_max,1)}')
-        print(f'残り MAX = {rem_max}')
+    if True:
+        print(f'Dense, N={(move_count[:, 7] == 1).sum()}')
+        fig = plt.figure(figsize = (16, 7), facecolor='lightblue')
+        ax = [fig.add_subplot(1, 4, i+1) for i in range(4)]
+        for i in range(2, 6) : 
+            idx = np.logical_and(move_count[:, 0] == i, move_count[:, 7] == 1)
+            mean = move_count[idx, 1].mean()
+            rem = move_count[idx, 2].mean()
+            rem_max = move_count[idx, 2].max()
+            score = move_count[idx, 3].mean()
+            ti = move_count[idx, 5].mean()
+            n_time_corr = np.corrcoef(move_count[idx, 5], move_count[idx, 6])[0,1]
+            time_max = move_count[idx, 5].max()
+            print(f'K={i} (N={idx.sum()}) : MoveCount = {round(mean,1)}, 残り = {round(rem,1)}, Score = {round(score,1)}, MeanTime = {round(ti,1)}, MaxTime = {round(time_max,1)}')
+            print(f'残り MAX = {rem_max}')
 
-        n = move_count[idx, 6]
-        n = n - n.min()
-        ti = move_count[idx, 5]
-        xy = np.vstack([n, ti])
-        z = gaussian_kde(xy)(xy)
-        idx = z.argsort()
-        x, y, z = n[idx], ti[idx], z[idx]
-        ax[i-2].scatter(x, y, c=z)
-        ax[i-2].set_xlabel('N')
-        ax[i-2].set_ylabel('Time')
-        ax[i-2].set_title(f'K = {i}')
-    plt.savefig('D_fig_N_time.png')
-    plt.close()
-    
-    fig = plt.figure(figsize = (16, 7), facecolor='lightblue')
-    ax = [fig.add_subplot(1, 4, i+1) for i in range(4)]
-    for i in range(2, 6) : 
-        idx = np.logical_and(move_count[:, 0] == i, move_count[:, 7] == 1)
-        n = move_count[idx, 6]
-        n = n - n.min()
-        mv = move_count[idx, 1]
-        xy = np.vstack([n, mv])
-        z = gaussian_kde(xy)(xy)
-        idx = z.argsort()
-        x, y, z = n[idx], mv[idx], z[idx]
-        ax[i-2].scatter(x, y, c=z)
-        ax[i-2].set_xlabel('N')
-        ax[i-2].set_ylabel('Move Count')
-        ax[i-2].set_title(f'K = {i}')
-    plt.savefig('D_fig_N_Move.png')
-    plt.close()
-    print('-------------')
+            n = move_count[idx, 6]
+            n = n - n.min()
+            ti = move_count[idx, 5]
+            xy = np.vstack([n, ti])
+            z = gaussian_kde(xy)(xy)
+            idx = z.argsort()
+            x, y, z = n[idx], ti[idx], z[idx]
+            ax[i-2].scatter(x, y, c=z)
+            ax[i-2].set_xlabel('N')
+            ax[i-2].set_ylabel('Time')
+            ax[i-2].set_title(f'K = {i}')
+        plt.savefig('D_fig_N_time.png')
+        plt.close()
+        
+        fig = plt.figure(figsize = (16, 7), facecolor='lightblue')
+        ax = [fig.add_subplot(1, 4, i+1) for i in range(4)]
+        for i in range(2, 6) : 
+            idx = np.logical_and(move_count[:, 0] == i, move_count[:, 7] == 1)
+            n = move_count[idx, 6]
+            n = n - n.min()
+            mv = move_count[idx, 1]
+            xy = np.vstack([n, mv])
+            z = gaussian_kde(xy)(xy)
+            idx = z.argsort()
+            x, y, z = n[idx], mv[idx], z[idx]
+            ax[i-2].scatter(x, y, c=z)
+            ax[i-2].set_xlabel('N')
+            ax[i-2].set_ylabel('Move Count')
+            ax[i-2].set_title(f'K = {i}')
+        plt.savefig('D_fig_N_Move.png')
+        plt.close()
+        print('-------------')
+
 
     if True:
 
@@ -137,7 +139,7 @@ if __name__ == '__main__':
             ti = move_count[idx, 5].mean()
             n_time_corr = np.corrcoef(move_count[idx, 5], move_count[idx, 6])[0,1]
             time_max = move_count[idx, 5].max()
-            print(f'K = {i} : MoveCount = {round(mean,1)}, 残り = {round(rem,1)}, Score = {round(score,1)}, MeanTime = {round(ti,1)}, MaxTime = {round(time_max,1)}')
+            print(f'K={i} (N={idx.sum()}) : MoveCount = {round(mean,1)}, 残り = {round(rem,1)}, Score = {round(score,1)}, MeanTime = {round(ti,1)}, MaxTime = {round(time_max,1)}')
             print(f'残り MAX = {rem_max}')
 
             n = move_count[idx, 6]

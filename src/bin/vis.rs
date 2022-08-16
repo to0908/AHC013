@@ -27,7 +27,7 @@ fn main() {
     // - Kごととかで表示
     
 
-    for i in 0..100{
+    for i in 300..700{
         let in_file = format!("in/{:>04}.txt", i);
         let out_file = format!("out/{:>04}.txt", i);
         let cerr_file = format!("cerr/{:>04}.txt", i);

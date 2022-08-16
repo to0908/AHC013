@@ -5,14 +5,14 @@ g++ -std=gnu++1z -I . -O2 -Wall -Wfatal-errors -Wextra -W main.cpp
 g++ calc_score.cpp -o calc_score.out
 rm -rf score
 rm -rf out
-rm -rf visualize
+# rm -rf visualize
 rm -rf cerr
 mkdir score
 mkdir out
-mkdir visualize
+# mkdir visualize
 mkdir cerr 
 
-st=0
+st=300
 en=0
 procs=8
 slep=1
@@ -28,14 +28,14 @@ export -f calc
 while getopts "j:J" optKey; do
   	case "$optKey" in
     	J)
-			en=299
-			slep=5
+			en=699
+			slep=10
 			;;
   	esac
 done
 
 seq -f '%04g' $st $en | xargs -n1 -P $procs -I{} bash -c "calc {}" & sleep $slep
 
-cargo run --release --bin vis
+# cargo run --release --bin vis
 
 python3 score.py
