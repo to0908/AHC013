@@ -881,6 +881,8 @@ int main(){
         cout << 0 << endl;
     }
     else {
+        cerr << "Solver: Sparse" << "\n";
+
         if(K == 5) target_range = 3; // 3
         
         sparse_breadth = SPARSE_BREADTH[K-2];
@@ -915,7 +917,6 @@ int main(){
         sparse_breadth += margin / t;
         sparse_search_limit += margin / t;
 
-        cerr << "Solver: Sparse" << "\n";
         SparseSolver s(N, K, field, time);
         auto ret = s.solve();
         s.print_answer(ret);
