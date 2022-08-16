@@ -737,7 +737,6 @@ struct DenseSolver : public BaseSolver{
     }
 
     vector<MoveAction> move(){
-
         max_move_size = DENSE_MAX_MOVE_COUNT[K-2];
         priority_queue<State> pq[max_move_size + 1];
         unordered_map<ll, bool> used;
@@ -873,6 +872,7 @@ private:
     vector<MoveAction> move(){
         vector<MoveAction> ret;
 
+
         max_move_size = SPARSE_MAX_MOVE_COUNT[K-2];
         priority_queue<State> pq[max_move_size + 1];
         unordered_map<ll, bool> used;
@@ -907,13 +907,11 @@ private:
             }
 
             for(int iter=0;iter<search_limit;iter++){
-                // int server_id = randint() % (int)server_pos.size();
                 int server_id = rand_server_permutation[idx];
                 idx++;
                 if(idx == (int)server_pos.size()) idx = 0;
                 dfs(limit, server_id, -1, state, pq, used, depth);
             }
-
             
             for (auto itr = state.move.rbegin(); itr != state.move.rend(); ++itr) {
                 empty_move_operation(field_empty_id[itr->pos1], itr->pos2);
