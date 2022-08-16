@@ -81,27 +81,31 @@ struct Result {
 };
 
 // 固定
-static constexpr int N_MIN[4] = {15,18,21,24};
-static constexpr int N_MAX[4] = {39,42,45,48};
+// K=2 かつ 15≤N≤39
+// K=3 かつ 18≤N≤42
+// K=4 かつ 21≤N≤45
+// K=5 かつ 24≤N≤48
+static constexpr int N_MIN[4] = {15, 18, 21, 24};
+static constexpr int N_MAX[4] = {39, 42, 45, 48};
 
 // パラメータ
 const int SPARSE_TIME_LIMIT = 2800; // 提出するときは2850にする
 const int DENSE_TIME_LIMIT = 2750;
 int target_range = 5;
-const double DENSE_THRESHOLD = 0.65; // TODO: 0.65がベスト?
+static constexpr int DENSE_THRESHOLD[4] = {3, 2, 3, 3};  // N <= MIN + x -> DENSE
 
 // DENSE
 static constexpr int DENSE_BREADTH[4] = {30, 25, 18, 13};
 static constexpr int DENSE_SEARCH_LIMIT[4] = {30, 25, 18, 12}; 
-static constexpr int DENSE_MAX_MOVE_COUNT[4] = {80, 160, 215, 295};
+static constexpr int DENSE_MAX_MOVE_COUNT[4] = {80, 160, 225, 295};
 static constexpr int START_LIMIT[4] = {2, 3, 3, 3};
 int breadth;
 int search_limit;
 
 // SPARSE
-static constexpr int SPARSE_BREADTH[4] = {15, 10, 10, 15};
-static constexpr int SPARSE_SEARCH_LIMIT[4] = {15, 12, 10, 12}; 
-static constexpr int SPARSE_MAX_MOVE_COUNT[4] = {80, 155, 200, 300};
+static constexpr int SPARSE_BREADTH[4] = {15, 12, 14, 15};
+static constexpr int SPARSE_SEARCH_LIMIT[4] = {15, 11, 12, 13}; 
+static constexpr int SPARSE_MAX_MOVE_COUNT[4] = {80, 165, 200, 320};
 
 
 struct BaseSolver {
@@ -927,9 +931,7 @@ int main(){
         cin >> field[i];
     }
 
-    double density = double(K*100) / double(N*N);
-    if(density >= DENSE_THRESHOLD) {
-        
+    if(N - N_MIN[K-2] <= DENSE_THRESHOLD[K-2]) {
         cerr << "Solver: Dense" << "\n";
 
         // if(K == 5) target_range = 3; // 3
@@ -979,12 +981,10 @@ int main(){
         breadth += margin / t;
         search_limit += margin / t;
 
-        // SparseSolver s(N, K, field, time);
-        // auto ret = s.solve();
-        // s.print_answer(ret);
+        SparseSolver s(N, K, field, time);
+        auto ret = s.solve();
+        s.print_answer(ret);
 
-        cout << 0 << endl;
-        cout << 0 << endl;
     }
 
     cerr << "Time = " << time.elapsed() << "\n";
