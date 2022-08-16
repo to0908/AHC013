@@ -819,7 +819,7 @@ private:
                     if(can_move(pos, dir) == false) continue;
                     int npos = pos + dxy[dir];
                     MoveAction mv = MoveAction(pos, npos);
-                    int nhash = calc_hash(state.field_hash, mv);
+                    ll nhash = calc_hash(state.field_hash, mv);
                     if(used[depth+1][nhash]) continue;
                     used[depth+1][nhash]=1;
 
