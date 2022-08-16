@@ -82,13 +82,10 @@ struct Result {
 
 
 // パラメータ
-const int TIME_LIMIT = 2850;
+const int TIME_LIMIT = 2800; // 提出するときは2850にする
 int target_range = 5;
 
-// K=2 かつ 15≤N≤39
-// K=3 かつ 18≤N≤42
-// K=4 かつ 21≤N≤45
-// K=5 かつ 24≤N≤48
+
 static constexpr int N_MIN[4] = {15,18,21,24};
 static constexpr int N_MAX[4] = {39,42,45,48};
 
@@ -805,7 +802,7 @@ private:
             State state = pq[depth].top();
             pq[depth].pop();
             if(depth_cnt == 0 and chmax(best_score, state.score)) {
-                cerr << depth << " " << state.score << " " << state.field_hash << "\n";
+                // cerr << depth << " " << state.score << " " << state.field_hash << "\n";
                 best_move = state.move;
             }
             depth_cnt++;
@@ -854,7 +851,7 @@ private:
             if(pq[i].empty()) continue;
             State state = pq[i].top();
             if(chmax(best_score, state.score)) {
-                cerr << i << " " << state.score << " " << state.field_hash << "\n";
+                // cerr << i << " " << state.score << " " << state.field_hash << "\n";
                 best_move = state.move;
             }
         }
@@ -891,7 +888,6 @@ int main(){
 
         int margin = N_MAX[K-2] - N;
         int t = (K>=4)?3:1;
-        margin += t;
         if(K == 2){
             int tmp = margin;
             margin -= 1;
