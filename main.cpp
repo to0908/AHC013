@@ -728,36 +728,6 @@ struct DenseSolver : public BaseSolver{
     }
 
     vector<MoveAction> move(){
-<<<<<<< HEAD
-        vector<MoveAction> ret;
-        /*
-        State:
-        - field[(N+2)*(N+2)] <- *int (?)
-        - field_hash <- long long (デカいので衝突が怖い)
-        - 空白の位置 <- vector<int> ? (長さは固定なので) *intでいけるならそっちのが良い 
-        - 操作列 <- vector<int> ?
-        - Score <- int
-        */
-        int action_count_limit = _action_count_limit;
-        int score = 0;
-        // 実験として、雑なDFSでやる。これで上手くいくならビームを撃つ
-        int iter = 0;
-        while(time.elapsed() < TIME_LIMIT) {
-            int limit = randint() % 5 + 1;
-            if(limit >= action_count_limit) continue;
-            int emp_idx = randint() % (int)empty_pos.size();
-            auto v = dfs(limit, emp_idx, -1, action_count_limit - limit);
-            if(chmax(score, v[0])) {
-                action_count_limit -= (int)v.size() - 1;
-                for(int i=(int)v.size()-1;i>=1;i--){
-                    int pos = empty_pos[emp_idx];
-                    int npos = v[i];
-                    ret.push_back(MoveAction(npos, pos));
-                    empty_move_operation(emp_idx, npos);
-                }
-                cerr << iter << " " << score << " " << action_count_limit << "\n";
-=======
-
         max_move_size = DENSE_MAX_MOVE_COUNT[K-2];
         priority_queue<State> pq[max_move_size + 1];
         unordered_map<ll, bool> used;
@@ -811,7 +781,6 @@ struct DenseSolver : public BaseSolver{
             if(depth_cnt == breadth) {
                 depth_cnt = 0;
                 depth++;
->>>>>>> f1bd13392b24d2c65231b89a8241a15521fe7cf4
             }
         }
 
@@ -864,45 +833,6 @@ private:
 
     vector<MoveAction> move(){
         vector<MoveAction> ret;
-<<<<<<< HEAD
-        /*
-        State:
-        - field[(N+2)*(N+2)] <- *int (?)
-        - field_hash <- long long (デカいので衝突が怖い)
-        - graph <- vector<vector<array<int,2>>> (vector<Graph>, Graph:=edge(pos1,pos2))
-        - 操作列 <- vector<int> ?
-        - Score <- int
-        */
-        int action_count_limit = _action_count_limit;
-        int best_score = calc_connect_score(0);
-        int iter = 0;
-        const int limit = 3;
-        int dxy2[] = {1, limit*2+1, -1, -limit*2-1};
-        while(time.elapsed() < TIME_LIMIT) {
-            int server_id = randint() % (int)server_pos.size();
-            int initial_pos = server_pos[server_id];
-            int next_pos = -1;
-            int next_comp_pos = -1;
-            int visited[(limit*2+1)*(limit*2+1)] = {};
-            queue<array<int,3>> que;
-            que.push({initial_pos, limit*(limit+1) + limit, 0});
-            visited[limit*(limit+1) + limit] = -1;
-            while(que.size()){
-                auto [pos, comp_pos, dist] = que.front();
-                que.pop();
-                if(dist >= action_count_limit) break;
-                if(dist) {
-                    empty_move_operation(field_empty_id[pos], initial_pos);
-                    int s = calc_connect_score(action_count_limit - dist);
-                    if(chmax(best_score, s)) {
-                        next_pos = pos;
-                        next_comp_pos = comp_pos;
-                    }
-                    empty_move_operation(field_empty_id[initial_pos], pos);
-                }
-                if(dist == limit) break;
-                for(int dir=0;dir<4;dir++){
-=======
 
         const int max_move_size = SPARSE_MAX_MOVE_COUNT[K-2];
         priority_queue<State> pq[max_move_size + 1];
@@ -941,7 +871,6 @@ private:
                 int server_id = randint() % (int)server_pos.size();
                 int pos = server_pos[server_id];
                 for(int dir=0;dir<4;dir++) {
->>>>>>> f1bd13392b24d2c65231b89a8241a15521fe7cf4
                     if(can_move(pos, dir) == false) continue;
                     int npos = pos + dxy[dir];
                     MoveAction mv = MoveAction(pos, npos);

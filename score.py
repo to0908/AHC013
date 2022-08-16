@@ -87,7 +87,7 @@ if __name__ == '__main__':
         ti = move_count[idx, 5].mean()
         n_time_corr = np.corrcoef(move_count[idx, 5], move_count[idx, 6])[0,1]
         time_max = move_count[idx, 5].max()
-        print(f'K = {i} : MoveCount = {round(mean,1)}, 残り = {round(rem,1)}, Score = {round(score,1)}, MeanTime = {round(ti,1)}, MaxTime = {round(time_max,1)}, N-Time-Corr = {round(n_time_corr,3)}')
+        print(f'K = {i} : MoveCount = {round(mean,1)}, 残り = {round(rem,1)}, Score = {round(score,1)}, MeanTime = {round(ti,1)}, MaxTime = {round(time_max,1)}')
         print(f'残り MAX = {rem_max}')
 
         n = move_count[idx, 6]
@@ -137,7 +137,7 @@ if __name__ == '__main__':
             ti = move_count[idx, 5].mean()
             n_time_corr = np.corrcoef(move_count[idx, 5], move_count[idx, 6])[0,1]
             time_max = move_count[idx, 5].max()
-            print(f'K = {i} : MoveCount = {round(mean,1)}, 残り = {round(rem,1)}, Score = {round(score,1)}, MeanTime = {round(ti,1)}, MaxTime = {round(time_max,1)}, N-Time-Corr = {round(n_time_corr,3)}')
+            print(f'K = {i} : MoveCount = {round(mean,1)}, 残り = {round(rem,1)}, Score = {round(score,1)}, MeanTime = {round(ti,1)}, MaxTime = {round(time_max,1)}')
             print(f'残り MAX = {rem_max}')
 
             n = move_count[idx, 6]
