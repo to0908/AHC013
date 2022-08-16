@@ -80,23 +80,28 @@ struct Result {
     Result(const vector<MoveAction> &move, const vector<ConnectAction> &con) : move(move), connect(con) {}
 };
 
-
-// パラメータ
-const int TIME_LIMIT = 2800; // 提出するときは2850にする
-int target_range = 5;
-
-
+// 固定
 static constexpr int N_MIN[4] = {15,18,21,24};
 static constexpr int N_MAX[4] = {39,42,45,48};
 
-// K=5ではtarget_rangeを絞っているので、逆にパラメータを大きくできる
-// Nと実行時間にはかなり強い相関があるため、逆を言えばNが小さいケースではパラメータを大きくできる
+// パラメータ
+const int SPARSE_TIME_LIMIT = 2800; // 提出するときは2850にする
+const int DENSE_TIME_LIMIT = 2750;
+int target_range = 5;
+const double DENSE_THRESHOLD = 0.65; // TODO: 0.65がベスト?
+
+// DENSE
+static constexpr int DENSE_BREADTH[4] = {30, 25, 18, 13};
+static constexpr int DENSE_SEARCH_LIMIT[4] = {30, 25, 18, 12}; 
+static constexpr int DENSE_MAX_MOVE_COUNT[4] = {80, 160, 215, 295};
+static constexpr int START_LIMIT[4] = {2, 3, 3, 3};
+int breadth;
+int search_limit;
+
+// SPARSE
 static constexpr int SPARSE_BREADTH[4] = {15, 10, 10, 15};
 static constexpr int SPARSE_SEARCH_LIMIT[4] = {15, 12, 10, 12}; 
-static constexpr int MAX_MOVE_COUNT[4] = {80, 175, 255, 355};
-int sparse_breadth;
-int sparse_search_limit;
-const double DENSE_THRESHOLD = 0.65; // TODO: 0.65がベスト?
+static constexpr int SPARSE_MAX_MOVE_COUNT[4] = {80, 155, 200, 300};
 
 
 struct BaseSolver {
@@ -123,11 +128,67 @@ struct BaseSolver {
     vector<int> calc_target_server_pos;
     int calc_target_field_server_id[2500]; // field_server_id[pos] := -1/server_id
 
+    // ---------------- beam ------------------
+    mt19937_64 engine;
+    ll rand[2500][6];
+
+    struct State{
+        int score;
+        ll field_hash;
+        // TODO: int field_id;
+        vector<MoveAction> move;
+
+        State(int score, ll field_hash, vector<MoveAction> &move) : 
+            score(score), field_hash(field_hash), move(move) {}
+
+        // scoreが大きい順にソートしたい
+        bool operator<(const State &s) const{
+            return score < s.score;
+        }
+    };
+
+    ll field_hash() {
+        ll ret = 0;
+        for(int i=1;i<=N;i++){
+            for(int j=1;j<=N;j++) {
+                int pos = i * (N+2) + j;
+                int x = field[pos];
+                ret ^= rand[pos][x];
+            }
+        }
+        return ret;
+    }
+
+    ll calc_hash(ll hash, MoveAction &move) {
+        assert(field[move.pos1] < 6);
+        assert(field[move.pos2] < 6);
+        assert(field[move.pos2] >= 0);
+        assert(field[move.pos1] >= 0);
+        assert(move.pos1 < (N+2)*(N+2));
+        assert(move.pos2 < (N+2)*(N+2));
+        assert(move.pos2 >= 0);
+        assert(move.pos1 >= 0);
+        hash ^= rand[move.pos1][field[move.pos1]];
+        hash ^= rand[move.pos2][field[move.pos2]];
+        hash ^= rand[move.pos2][field[move.pos1]];
+        hash ^= rand[move.pos1][field[move.pos2]];
+        return hash;
+    }
+
+    // ---------------- beam ------------------
+
     BaseSolver(int N, int K, const vector<string> &field_, Timer &time) : 
         N(N), K(K), _action_count_limit(K * 100), time(time){
         Kis2 = (K==2);
         int cnt = 0;
         server_pos.resize(K*100, -1);
+        random_device seed_gen;
+        engine.seed(seed_gen());
+        for(int i=0;i<(N+2)*(N+2);i++){
+            for(int j=0;j<6;j++){
+                rand[i][j] = engine();
+            }
+        }
         for(int i=0;i<2500;i++)calc_target_field_server_id[i]=-1;
         for(int i=1;i<=N;i++){
             for(int j=1;j<=N;j++){
@@ -625,163 +686,49 @@ private:
 
 struct DenseSolver : public BaseSolver{
 
-    DenseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
+    int max_move_size;
+    vector<int> rand_empty_permutation;
 
-    vector<int> dfs(int limit, int emp_idx, int pre, int action_count_limit) {
-        if(limit == 0) {
-            return {calc_connect_score(action_count_limit)};
-        }
-        int ma = -1;
-        vector<int> op = {-1};
-        int pos = empty_pos[emp_idx];
-        assert(field[pos] == 0);
-        for(int dir=0;dir<4;dir++) {
+    DenseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {
+        rand_empty_permutation.resize((int)empty_pos.size());
+        for(int i=0;i<(int)rand_empty_permutation.size();i++)rand_empty_permutation[i] = i;
+        shuffle(rand_empty_permutation.begin(), rand_empty_permutation.end(), engine);
+    }
+
+    void dfs(int limit, int emp_id, int pre, 
+            State &state, priority_queue<State> *pq, unordered_map<ll, bool> &used, int depth) {
+        if(depth+1 == max_move_size)return;
+
+        int pos = empty_pos[emp_id];
+        for(int dir = 0; dir < 4; dir++){
             int npos = pos + dxy[dir];
             if(npos == pre) continue;
             if(field[npos] > 0){
                 assert(field[npos] != USED);
                 assert(field[npos] <= K);
-                empty_move_operation(emp_idx, npos);
-                assert(empty_pos[emp_idx] == npos);
-                auto v = dfs(limit-1, emp_idx, pos, action_count_limit);
-                assert((int)v.size() >= 1);
-                int score = v[0];
-                if(chmax(ma, score)){
-                    op = v;
-                    op.push_back(npos);
-                }
-                empty_move_operation(emp_idx, pos);
+
+                MoveAction mv = MoveAction(npos, pos);
+                ll nhash = calc_hash(state.field_hash, mv);
+                if(used[nhash]) continue;
+                used[nhash]=1;
+
+                empty_move_operation(emp_id, npos);
+                int nscore = calc_connect_score(_action_count_limit - (int)state.move.size() - 1);
+                
+                state.move.push_back(mv);
+                pq[depth+1].push(State(nscore, nhash, state.move));
+                if(limit != 1) dfs(limit-1, emp_id, pos, state, pq, used, depth);
+                state.move.pop_back();
+                empty_move_operation(emp_id, pos);
             }
         }
-        return op;
     }
 
     vector<MoveAction> move(){
-        vector<MoveAction> ret;
 
-        int action_count_limit = _action_count_limit;
-        int score = 0;
-        // 実験として、雑なDFSでやる。これで上手くいくならビームを撃つ
-        int iter = 0;
-        while(time.elapsed() < TIME_LIMIT) {
-        // while(iter < max_iter){ // ローカルで動かす時にスコアが安定するように
-            int limit = randint() % 5 + 1;
-            if(limit >= action_count_limit) continue;
-            int emp_idx = randint() % (int)empty_pos.size();
-            auto v = dfs(limit, emp_idx, -1, action_count_limit - limit);
-            if(chmax(score, v[0])) {
-                action_count_limit -= (int)v.size() - 1;
-                for(int i=(int)v.size()-1;i>=1;i--){
-                    int pos = empty_pos[emp_idx];
-                    int npos = v[i];
-                    ret.push_back(MoveAction(npos, pos));
-                    empty_move_operation(emp_idx, npos);
-                }
-                cerr << iter << " " << score << " " << action_count_limit << "\n";
-            }
-            emp_idx++;
-            iter++;
-        }
-        return ret;
-    }
-
-    Result solve(){
-        // create random moves
-        cerr << "BEGIN " << calc_connect_score(_action_count_limit) << "\n";
-        auto moves = move();
-        // auto moves = base_move();
-
-        // from each computer, connect to right and/or bottom if it will reach the same type
-        int action_count_limit = _action_count_limit - (int)moves.size();
-
-        auto connects = base_connect(action_count_limit);
-
-        return Result(moves, connects);
-    }
-};
-
-struct SparseSolver : public BaseSolver{
-
-    mt19937_64 engine;
-    ll rand[2500][6];
-
-    SparseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {
-        random_device seed_gen;
-        engine.seed(seed_gen());
-        for(int i=0;i<(N+2)*(N+2);i++){
-            for(int j=0;j<6;j++){
-                rand[i][j] = engine();
-            }
-        }
-    }
-
-
-    Result solve(){
-        // create random moves
-        cerr << "BEGIN " << calc_connect_score(_action_count_limit) << "\n";
-        auto moves = move();
-
-        int action_count_limit = _action_count_limit - (int)moves.size();
-        for(auto &mv : moves) {
-            empty_move_operation(field_empty_id[mv.pos2], mv.pos1);
-        }
-
-        auto connects = base_connect(action_count_limit);
-
-        return Result(moves, connects);
-    }
-
-private:
-
-    struct State{
-        int score;
-        ll field_hash;
-        // TODO: int field_id;
-        vector<MoveAction> move;
-
-        State(int score, ll field_hash, vector<MoveAction> &move) : 
-            score(score), field_hash(field_hash), move(move) {}
-
-        // scoreが大きい順にソートしたい
-        bool operator<(const State &s) const{
-            return score < s.score;
-        }
-    };
-
-    ll field_hash() {
-        ll ret = 0;
-        for(int i=1;i<=N;i++){
-            for(int j=1;j<=N;j++) {
-                int pos = i * (N+2) + j;
-                int x = field[pos];
-                ret ^= rand[pos][x];
-            }
-        }
-        return ret;
-    }
-
-    ll calc_hash(ll hash, MoveAction &move) {
-        assert(field[move.pos1] < 6);
-        assert(field[move.pos2] < 6);
-        assert(field[move.pos2] >= 0);
-        assert(field[move.pos1] >= 0);
-        assert(move.pos1 < (N+2)*(N+2));
-        assert(move.pos2 < (N+2)*(N+2));
-        assert(move.pos2 >= 0);
-        assert(move.pos1 >= 0);
-        hash ^= rand[move.pos1][field[move.pos1]];
-        hash ^= rand[move.pos2][field[move.pos2]];
-        hash ^= rand[move.pos2][field[move.pos1]];
-        hash ^= rand[move.pos1][field[move.pos2]];
-        return hash;
-    }
-
-    vector<MoveAction> move(){
-        vector<MoveAction> ret;
-
-        const int max_move_size = MAX_MOVE_COUNT[K-2];
+        max_move_size = DENSE_MAX_MOVE_COUNT[K-2];
         priority_queue<State> pq[max_move_size + 1];
-        unordered_map<ll, bool> used[max_move_size + 1];
+        unordered_map<ll, bool> used;
 
         int best_score = 0;
         ll hash = field_hash();
@@ -790,9 +737,11 @@ private:
         pq[0].push(initial_state);
 
         int depth = 0;
-        // int limit = 1;
         int depth_cnt = 0;
-        while(time.elapsed() < TIME_LIMIT) {
+        int idx = 0;
+        int limit = START_LIMIT[K-2];
+        while(int ti = time.elapsed() < DENSE_TIME_LIMIT) {
+            if(ti > 2000) limit = 2;
             if(depth == max_move_size) break;
             if(pq[depth].empty()) {
                 depth++;
@@ -812,7 +761,114 @@ private:
                 empty_move_operation(field_empty_id[mv.pos2], mv.pos1);
             }
 
-            for(int iter=0;iter<sparse_search_limit;iter++){
+            // empの個数が小さい場合、結構衝突することが予想される。
+            // ランダムに順番を設定し、その順でやるか？
+            for(int iter=0;iter<min(search_limit, (int)rand_empty_permutation.size());iter++){
+                int emp_id = rand_empty_permutation[idx];
+                idx++;
+                if(idx == (int)rand_empty_permutation.size())idx = 0;
+                dfs(limit, emp_id, -1, state, pq, used, depth);
+            }
+
+            
+            for (auto itr = state.move.rbegin(); itr != state.move.rend(); ++itr) {
+                // cerr << "<- " << itr->pos1 << " " << itr->pos2 << "\n";
+                empty_move_operation(field_empty_id[itr->pos1], itr->pos2);
+            }
+
+            if(depth_cnt == breadth) {
+                depth_cnt = 0;
+                depth++;
+            }
+        }
+
+
+        for(int i=depth;i<depth+2;i++) {
+            if(i >= max_move_size) break;
+            if(pq[i].empty()) continue;
+            State state = pq[i].top();
+            if(chmax(best_score, state.score)) {
+                // cerr << i << " " << state.score << " " << state.field_hash << "\n";
+                best_move = state.move;
+            }
+        }
+        return best_move;
+    }
+
+    Result solve(){
+        cerr << "BEGIN " << calc_connect_score(_action_count_limit) << "\n";
+        auto moves = move();
+        for(auto &mv : moves) {
+            empty_move_operation(field_empty_id[mv.pos2], mv.pos1);
+        }
+
+        int action_count_limit = _action_count_limit - (int)moves.size();
+
+        auto connects = base_connect(action_count_limit);
+
+        return Result(moves, connects);
+    }
+};
+
+struct SparseSolver : public BaseSolver{
+
+    SparseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
+
+
+    Result solve(){
+        // create random moves
+        cerr << "BEGIN " << calc_connect_score(_action_count_limit) << "\n";
+        auto moves = move();
+
+        int action_count_limit = _action_count_limit - (int)moves.size();
+        for(auto &mv : moves) {
+            empty_move_operation(field_empty_id[mv.pos2], mv.pos1);
+        }
+
+        auto connects = base_connect(action_count_limit);
+
+        return Result(moves, connects);
+    }
+
+private:
+
+    vector<MoveAction> move(){
+        vector<MoveAction> ret;
+
+        const int max_move_size = SPARSE_MAX_MOVE_COUNT[K-2];
+        priority_queue<State> pq[max_move_size + 1];
+        unordered_map<ll, bool> used[max_move_size + 1];
+
+        int best_score = 0;
+        ll hash = field_hash();
+        vector<MoveAction> best_move;
+        State initial_state = State(0, hash, best_move);
+        pq[0].push(initial_state);
+
+        int depth = 0;
+        // int limit = 1;
+        int depth_cnt = 0;
+        while(time.elapsed() < SPARSE_TIME_LIMIT) {
+            if(depth == max_move_size) break;
+            if(pq[depth].empty()) {
+                depth++;
+                depth_cnt = 0;
+                continue;
+            }
+            State state = pq[depth].top();
+            pq[depth].pop();
+            if(depth_cnt == 0 and chmax(best_score, state.score)) {
+                // cerr << depth << " " << state.score << " " << state.field_hash << "\n";
+                best_move = state.move;
+            }
+            depth_cnt++;
+
+            for(auto &mv : state.move) {
+                // cerr << "-> " << mv.pos1 << " " << mv.pos2 << "\n";
+                empty_move_operation(field_empty_id[mv.pos2], mv.pos1);
+            }
+
+            for(int iter=0;iter<search_limit;iter++){
                 int server_id = randint() % (int)server_pos.size();
                 int pos = server_pos[server_id];
                 for(int dir=0;dir<4;dir++) {
@@ -839,7 +895,7 @@ private:
                 empty_move_operation(field_empty_id[itr->pos1], itr->pos2);
             }
 
-            if(depth_cnt == sparse_breadth) {
+            if(depth_cnt == breadth) {
                 depth_cnt = 0;
                 depth++;
             }
@@ -873,20 +929,26 @@ int main(){
 
     double density = double(K*100) / double(N*N);
     if(density >= DENSE_THRESHOLD) {
+        
         cerr << "Solver: Dense" << "\n";
-        // DenseSolver s(N, K, field, time);
-        // auto ret = s.solve();
-        // s.print_answer(ret);
-        cout << 0 << endl;
-        cout << 0 << endl;
+
+        // if(K == 5) target_range = 3; // 3
+
+
+        breadth = DENSE_BREADTH[K-2];
+        search_limit = DENSE_SEARCH_LIMIT[K-2];
+
+        DenseSolver s(N, K, field, time);
+        auto ret = s.solve();
+        s.print_answer(ret);
     }
     else {
         cerr << "Solver: Sparse" << "\n";
 
         if(K == 5) target_range = 3; // 3
         
-        sparse_breadth = SPARSE_BREADTH[K-2];
-        sparse_search_limit = SPARSE_SEARCH_LIMIT[K-2];
+        breadth = SPARSE_BREADTH[K-2];
+        search_limit = SPARSE_SEARCH_LIMIT[K-2];
 
         int margin = N_MAX[K-2] - N;
         int t = (K>=4)?3:1;
@@ -914,12 +976,15 @@ int main(){
             else if(margin >= 15) margin += 3;
             else margin -= 6;
         }
-        sparse_breadth += margin / t;
-        sparse_search_limit += margin / t;
+        breadth += margin / t;
+        search_limit += margin / t;
 
-        SparseSolver s(N, K, field, time);
-        auto ret = s.solve();
-        s.print_answer(ret);
+        // SparseSolver s(N, K, field, time);
+        // auto ret = s.solve();
+        // s.print_answer(ret);
+
+        cout << 0 << endl;
+        cout << 0 << endl;
     }
 
     cerr << "Time = " << time.elapsed() << "\n";
