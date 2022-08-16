@@ -93,7 +93,7 @@ static constexpr int N_MAX[4] = {39,42,45,48};
 // Nと実行時間にはかなり強い相関があるため、逆を言えばNが小さいケースではパラメータを大きくできる
 static constexpr int SPARSE_BREADTH[4] = {15, 10, 10, 15};
 static constexpr int SPARSE_SEARCH_LIMIT[4] = {15, 12, 10, 12}; 
-static constexpr int MAX_MOVE_COUNT[4] = {80, 170, 250, 350};
+static constexpr int MAX_MOVE_COUNT[4] = {80, 175, 255, 355};
 int sparse_breadth;
 int sparse_search_limit;
 const double DENSE_THRESHOLD = 0.65; // TODO: 0.65がベスト?
