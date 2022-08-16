@@ -14,7 +14,7 @@ mkdir cerr
 
 st=0
 en=0
-procs=0
+procs=8
 slep=1
 
 calc() {
@@ -28,8 +28,8 @@ export -f calc
 while getopts "j:J" optKey; do
   	case "$optKey" in
     	J)
-			en=99
-			slep=3
+			en=299
+			slep=5
 			;;
   	esac
 done
