@@ -92,7 +92,7 @@ static constexpr int N_MAX[4] = {39, 42, 45, 48};
 const int SPARSE_TIME_LIMIT = 2850; // 提出するときは2850にする
 const int DENSE_TIME_LIMIT = 2780;
 int target_range = 5;
-static constexpr int DENSE_THRESHOLD[4] = {3, 2, 3, 3};  // N <= MIN + x -> DENSE
+static constexpr int DENSE_THRESHOLD[4] = {3, 3, 3, 3};  // N <= MIN + x -> DENSE
 
 // DENSE
 static constexpr int DENSE_BREADTH[4] = {30, 25, 18, 13};
