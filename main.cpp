@@ -96,19 +96,20 @@ static constexpr int DENSE_THRESHOLD[4] = {3, 3, 3, 3};  // N <= MIN + x -> DENS
 // static constexpr int DENSE_SEARCH_LIMIT[4] = {32, 15, 9, 7}; 
 // static constexpr int DENSE_MAX_MOVE_COUNT[4] = {160, 265, 340, 425};
 // static constexpr int DENSE_START_LIMIT[4] = {2, 3, 3, 3};
-static constexpr int DENSE_BREADTH[4] = {32, 15, 10, 5};
-static constexpr int DENSE_SEARCH_LIMIT[4] = {32, 15, 9, 8}; 
+static constexpr int DENSE_BREADTH[4] = {32, 14, 9, 5};
+static constexpr int DENSE_SEARCH_LIMIT[4] = {32, 14, 9, 7}; 
 static constexpr int DENSE_MAX_MOVE_COUNT[4] = {160, 265, 340, 425};
 static constexpr int DENSE_START_LIMIT[4] = {2, 3, 3, 4};
 int breadth;
 int search_limit;
 
 // SPARSE
-static constexpr int SPARSE_BREADTH[4] = {16, 12, 7, 9};
-static constexpr int SPARSE_SEARCH_LIMIT[4] = {16, 11, 6, 8}; 
-static constexpr int SPARSE_MAX_MOVE_COUNT[4] = {180, 265, 310, 480};
-static constexpr int SPARSE_START_LIMIT[4] = {1, 1, 2, 2};
 
+
+static constexpr int SPARSE_BREADTH[4] = {16, 5, 5, 5};
+static constexpr int SPARSE_SEARCH_LIMIT[4] = {16, 5, 6, 7}; 
+static constexpr int SPARSE_MAX_MOVE_COUNT[4] = {180, 265, 310, 480};
+static constexpr int SPARSE_START_LIMIT[4] = {1, 2, 2, 3};
 
 struct BaseSolver {
     static constexpr int USED = 9;
@@ -888,7 +889,7 @@ private:
         int idx = 0;
         while(int ti = time.elapsed() < SPARSE_TIME_LIMIT) {
             if(depth == max_move_size) break;
-            if(ti > 2400) limit = 1;
+            if(ti > 2300) limit = 1;
             if(pq[depth].empty()) {
                 depth++;
                 depth_cnt = 0;
@@ -960,7 +961,6 @@ int main(){
         DenseSolver s(N, K, field, time);
         auto ret = s.solve();
         s.print_answer(ret);
-
     }
     else {
         cerr << "Solver: Sparse" << "\n";
