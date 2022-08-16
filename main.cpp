@@ -107,9 +107,7 @@ static constexpr int SPARSE_START_LIMIT[4] = {1, 1, 2, 2};
 
 
 struct BaseSolver {
-    const int max_iter = 1000;
     static constexpr int USED = 9;
-    const int TIME_LIMIT_CONNECT = 2850;
     int dxy[4];
 
     int N, K;
@@ -332,6 +330,7 @@ struct BaseSolver {
         UnionFind uf(K*100);
 
         // 無害な連結
+        vector<array<int,3>> connect_pair;
         for(auto pos : server_pos){
             for (int dir = 0; dir < 2; dir++) {
                 int npos = can_connect(pos, dir);
@@ -360,34 +359,46 @@ struct BaseSolver {
                     ret.push_back(line_fill(pos, dir));
                     action_count_limit--;
                 }
+                else if(!is_only_this_pair and !uf.same(field_server_id[pos], field_server_id[npos])) {
+                    connect_pair.push_back({pos, npos, dir});
+                }
             }
         }
 
         // 貪欲に最も無害なのを繋げる (多分無害？わからんぜ) <- 最適ではありません…
-        if(1){
+        {
             while(true){
                 bool connected = false;
-                for(auto pos : server_pos){
-                    for (int dir = 0; dir < 2; dir++) {
-                        int npos = can_connect(pos, dir);
-                        if(npos == -1) continue;
-                        if(uf.same(field_server_id[pos], field_server_id[npos])) continue;
-                        int sz1 = uf.size(field_server_id[pos]), sz2 = uf.size(field_server_id[npos]);
-                        int score = sz1 * sz2;
-                        int now = pos + dxy[dir];
-                        while(now != npos) {
-                            auto [pos_x, pos_y] = vertical_server_pair[dir][now];
-                            int x = field[pos_x], y = field[pos_y];
-                            if(x != 0 and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
-                                score -= uf.size(field_server_id[pos_x]) * uf.size(field_server_id[pos_y]);
-                            }
-                            now += dxy[dir];
+                for(auto it = connect_pair.begin(); it != connect_pair.end();){
+                    auto &[pos, npos, dir] = *it;
+                    if(uf.same(field_server_id[pos], field_server_id[npos])){
+                        it = connect_pair.erase(it);
+                        continue;
+                    }
+                    int nnpos = can_connect(pos, dir);
+                    if(nnpos == -1) {
+                        it = connect_pair.erase(it);
+                        continue;
+                    }
+                    int sz1 = uf.size(field_server_id[pos]), sz2 = uf.size(field_server_id[npos]);
+                    int score = sz1 * sz2;
+                    int now = pos + dxy[dir];
+                    while(now != npos) {
+                        auto [pos_x, pos_y] = vertical_server_pair[dir][now];
+                        int x = field[pos_x], y = field[pos_y];
+                        if(x != 0 and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
+                            score -= uf.size(field_server_id[pos_x]) * uf.size(field_server_id[pos_y]);
                         }
-                        if(score > 0 and uf.unite(field_server_id[pos], field_server_id[npos])) {
-                            connected=true;
-                            ret.push_back(line_fill(pos, dir));
-                            action_count_limit--;
-                        }
+                        now += dxy[dir];
+                    }
+                    if(score > 0 and uf.unite(field_server_id[pos], field_server_id[npos])) {
+                        connected=true;
+                        ret.push_back(line_fill(pos, dir));
+                        action_count_limit--;
+                        it = connect_pair.erase(it);
+                    }
+                    else{
+                        ++it;
                     }
                 }
                 if(!connected) break;
@@ -397,15 +408,18 @@ struct BaseSolver {
         // 貪欲にスコアが高いものから連結 (有害)
         if(1){
             vector<array<int, 4>> edge;
-            for(auto pos : server_pos){
-                for (int dir = 0; dir < 2; dir++) {
-                    int npos = can_connect(pos, dir);
-                    if(npos == -1) continue;
-                    if(uf.same(field_server_id[pos], field_server_id[npos])) continue;
-                    int sz1 = uf.size(field_server_id[pos]), sz2 = uf.size(field_server_id[npos]);
-                    int score = sz1 * sz2;
-                    edge.push_back({score, dir, pos, npos});
+            for(auto it = connect_pair.begin(); it != connect_pair.end();++it){
+                auto &[pos, npos, dir] = *it;
+                if(uf.same(field_server_id[pos], field_server_id[npos])) {
+                    continue;
                 }
+                int nnpos = can_connect(pos, dir);
+                if(nnpos == -1) {
+                    continue;
+                }
+                int sz1 = uf.size(field_server_id[pos]), sz2 = uf.size(field_server_id[npos]);
+                int score = sz1 * sz2;
+                edge.push_back({score, dir, pos, npos});
             }
             sort(all(edge), greater<array<int,4>>());
             for(auto &[score, dir, pos, npos] : edge){
@@ -474,11 +488,6 @@ struct BaseSolver {
             }
             swap(ret, nret);
         }
-
-        // // TODO: 時間いっぱいConnectを切ってMoveで再Connect
-        // while(time.elapsed() < TIME_LIMIT_CONNECT){
-        //     // TODO
-        // }
 
         return ret;
     }
@@ -583,7 +592,6 @@ struct BaseSolver {
 
 
         // 貪欲にスコアが高いものから連結 (有害)
-        // K=2では十分回るので正確性が重視され、K>=3ではより深く(Moveを多く使う)方が重視されるので省く、みたいな？
         {
             vector<array<int, 4>> edge;
             for(auto it = connect_pair.begin(); it != connect_pair.end();++it){
@@ -750,18 +758,14 @@ struct DenseSolver : public BaseSolver{
             State state = pq[depth].top();
             pq[depth].pop();
             if(depth_cnt == 0 and chmax(best_score, state.score)) {
-                // cerr << depth << " " << state.score << " " << state.field_hash << "\n";
                 best_move = state.move;
             }
             depth_cnt++;
 
             for(auto &mv : state.move) {
-                // cerr << "-> " << mv.pos1 << " " << mv.pos2 << "\n";
                 empty_move_operation(field_empty_id[mv.pos2], mv.pos1);
             }
 
-            // empの個数が小さい場合、結構衝突することが予想される。
-            // ランダムに順番を設定し、その順でやるか？
             for(int iter=0;iter<min(search_limit, (int)rand_empty_permutation.size());iter++){
                 int emp_id = rand_empty_permutation[idx];
                 idx++;
@@ -771,7 +775,6 @@ struct DenseSolver : public BaseSolver{
 
             
             for (auto itr = state.move.rbegin(); itr != state.move.rend(); ++itr) {
-                // cerr << "<- " << itr->pos1 << " " << itr->pos2 << "\n";
                 empty_move_operation(field_empty_id[itr->pos1], itr->pos2);
             }
 
@@ -787,7 +790,6 @@ struct DenseSolver : public BaseSolver{
             if(pq[i].empty()) continue;
             State state = pq[i].top();
             if(chmax(best_score, state.score)) {
-                // cerr << i << " " << state.score << " " << state.field_hash << "\n";
                 best_move = state.move;
             }
         }
