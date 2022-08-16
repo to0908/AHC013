@@ -96,7 +96,7 @@ static constexpr int DENSE_THRESHOLD[4] = {3, 2, 3, 3};  // N <= MIN + x -> DENS
 
 // DENSE
 static constexpr int DENSE_BREADTH[4] = {30, 25, 18, 13};
-static constexpr int DENSE_SEARCH_LIMIT[4] = {30, 25, 18, 12}; 
+static constexpr int DENSE_SEARCH_LIMIT[4] = {30, 25, 17, 12}; 
 static constexpr int DENSE_MAX_MOVE_COUNT[4] = {80, 160, 225, 295};
 static constexpr int START_LIMIT[4] = {2, 3, 3, 3};
 int breadth;
