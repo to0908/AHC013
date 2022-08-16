@@ -93,6 +93,7 @@ const int SPARSE_TIME_LIMIT = 2800; // 提出するときは2850にする
 const int DENSE_TIME_LIMIT = 2750;
 int target_range = 5;
 static constexpr int DENSE_THRESHOLD[4] = {3, 2, 3, 3};  // N <= MIN + x -> DENSE
+const int snap_freq = 40;
 
 // DENSE
 static constexpr int DENSE_BREADTH[4] = {30, 25, 18, 13};
@@ -123,16 +124,50 @@ struct BaseSolver {
     Timer time;
 
     struct Field {
-        int field[2500]; // field[pos] := -1/0/server
+        int moved;
+        vector<int> field; // field[pos] := -1/0/server
         vector<int> server_pos; // server_pos[server_id] := pos
-        int field_server_id[2500]; // field_server_id[pos] := -1/server_id
-        int field_empty_id[2500]; // field_empty_id[pos] := -1/empty_id
+        vector<int> field_server_id; // field_server_id[pos] := -1/server_id
+        vector<int> field_empty_id; // field_empty_id[pos] := -1/empty_id
         vector<int> empty_pos; // empty_pos[empty_id] := pos
-        array<int,2> vertical_server_pair[2][2500]; // [dir(0/1)][pos] := {pos1, pos2} (empty or server)
+        vector<int> vertical_server_pair1; // [dir(0/1)][pos] := {pos1, pos2} (empty or server)
+        vector<int> vertical_server_pair2; // [dir(0/1)][pos] := {pos1, pos2} (empty or server)
         vector<int> calc_target_server_pos;
-        int calc_target_field_server_id[2500]; // field_server_id[pos] := -1/server_id
+        vector<int> calc_target_field_server_id; // field_server_id[pos] := -1/server_id
 
-        Field(){}
+        Field(int n){
+            field.resize(2500);
+            field_empty_id.resize(2500); // field_empty_id[pos] := -1/empty_id
+            vertical_server_pair1.resize(5000); // [dir(0/1)][pos] := {pos1, pos2} (empty or server)
+            vertical_server_pair2.resize(5000); // [dir(0/1)][pos] := {pos1, pos2} (empty or server)
+            calc_target_field_server_id.resize(2500); // field_server_id[pos] := -1/server_id
+        }
+        Field(int moved,
+            vector<int> &field, // field[pos] := -1/0/server
+            vector<int> &server_pos, // server_pos[server_id] := pos
+            vector<int> &field_server_id, // field_server_id[pos] := -1/server_id
+            vector<int> &field_empty_id, // field_empty_id[pos] := -1/empty_id
+            vector<int> &empty_pos, // empty_pos[empty_id] := pos
+            vector<int> &vertical_server_pair1, // [dir(0/1)][pos] := {pos1, pos2} (empty or server)
+            vector<int> &vertical_server_pair2, // [dir(0/1)][pos] := {pos1, pos2} (empty or server)
+            vector<int> &calc_target_server_pos,
+            vector<int> &calc_target_field_server_id // field_server_id[pos] := -1/server_id)
+        ) :moved(moved), field(field), server_pos(server_pos), field_server_id(field_server_id), field_empty_id(field_empty_id),
+            empty_pos(empty_pos), vertical_server_pair1(vertical_server_pair1), vertical_server_pair2(vertical_server_pair2),
+            calc_target_server_pos(calc_target_server_pos), calc_target_field_server_id(calc_target_field_server_id) 
+        {}
+
+        // void copy(Field &f) {
+        //     moved = f.moved;
+        //     *field = *f.field;
+        //     server_pos = f.server_pos;
+        //     *field_server_id = *f.field_server_id;
+        //     *field_empty_id = *f.field_empty_id;
+        //     empty_pos = f.empty_pos;
+        //     (*vertical_server_pair[2])[2500] = (*f.vertical_server_pair[2])[2500];
+        //     calc_target_server_pos = f.calc_target_server_pos;
+        //     *calc_target_field_server_id = *f.calc_target_field_server_id;
+        // }
     };
 
     vector<Field> fields;
@@ -153,8 +188,8 @@ struct BaseSolver {
     struct State {
         int score;
         ll field_hash;
-        int field_id;
         vector<MoveAction> move;
+        int field_id;
 
         State(int score, ll field_hash, vector<MoveAction> &move, int field_id) : 
             score(score), field_hash(field_hash), move(move), field_id(field_id) {}
@@ -198,7 +233,8 @@ struct BaseSolver {
     BaseSolver(int N, int K, const vector<string> &field_, Timer &time) : 
         N(N), K(K), _action_count_limit(K * 100), time(time){
         
-        Field f;
+        Field f(1);
+        f.moved = 0;
         int cnt = 0;
         f.server_pos.resize(K*100, -1);
         random_device seed_gen;
@@ -255,11 +291,14 @@ struct BaseSolver {
         dxy[2] = -1;
         dxy[3] = -N-2;
 
-        for(int i=0;i<2;i++)for(int j=0;j<2500;j++)f.vertical_server_pair[i][j] = {0, 0};
+        for(int i=0;i<2;i++)for(int j=0;j<2500;j++){
+            f.vertical_server_pair1[i*2500+j] = 0;
+            f.vertical_server_pair2[i*2500+j] = 0;
+        }
 
         for(int dir=0;dir<2;dir++){
             for(auto &pos : f.empty_pos) {
-                if(f.vertical_server_pair[dir][pos][0] != 0) continue;
+                if(f.vertical_server_pair1[dir*2500+pos] != 0) continue;
                 // 常にindexが(min, max)になるようにしておく
                 update_vertical_info(pos, dir, f);
             }
@@ -296,7 +335,12 @@ struct BaseSolver {
             while(f.field[nx] == 0) {
                 // RDLU
                 // 0101
-                f.vertical_server_pair[(dir&1)^1][nx][(dir<=1)?0:1] = pos;
+                if(dir<=1){
+                    f.vertical_server_pair1[((dir&1)^1)*2500+nx] = pos;
+                }
+                else{
+                    f.vertical_server_pair2[((dir&1)^1)*2500+nx] = pos;
+                }
                 nx += dxy[dir];
             }
         }
@@ -368,7 +412,8 @@ struct BaseSolver {
                 int now = pos + dxy[dir];
                 while(now != npos) {
                     assert(f.field[now] == 0);
-                    auto [pos_x, pos_y] = f.vertical_server_pair[dir][now];
+                    auto pos_x = f.vertical_server_pair1[dir*2500+now];
+                    auto pos_y = f.vertical_server_pair2[dir*2500+now];
                     int x = f.field[pos_x], y = f.field[pos_y];
                     if(x > 0 and x == y and !uf.same(f.field_server_id[pos_x], f.field_server_id[pos_y])) {
                         is_only_this_pair = false;
@@ -396,7 +441,8 @@ struct BaseSolver {
                         int score = sz1 * sz2;
                         int now = pos + dxy[dir];
                         while(now != npos) {
-                            auto [pos_x, pos_y] = f.vertical_server_pair[dir][now];
+                            auto pos_x= f.vertical_server_pair1[dir*2500+now];
+                            auto pos_y = f.vertical_server_pair2[dir*2500+now];
                             int x = f.field[pos_x], y = f.field[pos_y];
                             if(x != 0 and x == y and !uf.same(f.field_server_id[pos_x], f.field_server_id[pos_y])) {
                                 score -= uf.size(f.field_server_id[pos_x]) * uf.size(f.field_server_id[pos_y]);
@@ -528,7 +574,8 @@ struct BaseSolver {
                 bool is_only_this_pair = true;
                 int now = pos + dxy[dir];
                 while(now != npos) {
-                    auto [pos_x, pos_y] = f.vertical_server_pair[dir][now];
+                    auto pos_x = f.vertical_server_pair1[dir*2500+now];
+                    auto pos_y = f.vertical_server_pair2[dir*2500+now];
                     int x = f.field[pos_x], y = f.field[pos_y];
                     if(x > 0 and x == y and !uf.same(f.field_server_id[pos_x], f.field_server_id[pos_y])) {
                         is_only_this_pair = false;
@@ -573,7 +620,8 @@ struct BaseSolver {
                     int now = pos + dxy[dir];
                     vector<array<int,3>> era;
                     while(now != npos) {
-                        auto [pos_x, pos_y] = f.vertical_server_pair[dir][now];
+                        auto pos_x = f.vertical_server_pair1[dir*2500+now];
+                        auto pos_y = f.vertical_server_pair2[dir*2500+now];
                         int x = f.field[pos_x], y = f.field[pos_y];
                         if(x != 0 and x == y and !uf.same(f.field_server_id[pos_x], f.field_server_id[pos_y])) {
                             score2 -= uf.size(f.field_server_id[pos_x]) * uf.size(f.field_server_id[pos_y]);
@@ -686,7 +734,8 @@ private:
             assert(f.field[x] != -1);
             assert(f.field[y] != -1);
             for(int npos=x; npos <= y; npos += d){
-                f.vertical_server_pair[dir][npos] = {x, y};
+                f.vertical_server_pair1[dir*2500+npos] = x;
+                f.vertical_server_pair2[dir*2500+npos] = y;
             }
         }
         else{
@@ -697,7 +746,8 @@ private:
             assert(f.field[x] != -1);
             assert(f.field[y] != -1);
             for(int npos=x; npos <= y; npos += d){
-                f.vertical_server_pair[dir][npos] = {x, y};
+                f.vertical_server_pair1[dir*2500+npos] = x;
+                f.vertical_server_pair2[dir*2500+npos] = y;
             }
         }
     }
@@ -877,19 +927,34 @@ private:
             pq[depth].pop();
             auto &f = fields[state.field_id];
             if(depth_cnt == 0 and chmax(best_score, state.score)) {
-                // cerr << depth << " " << state.score << " " << state.field_hash << "\n";
+                cerr << depth << " " << state.score << " " << state.field_hash << "\n";
                 best_move = state.move;
             }
             depth_cnt++;
 
-            for(auto &mv : state.move) {
+            for(int i=f.moved;i<(int)state.move.size();i++) {
                 // cerr << "-> " << mv.pos1 << " " << mv.pos2 << "\n";
-                empty_move_operation(f.field_empty_id[mv.pos2], mv.pos1, f);
+                empty_move_operation(f.field_empty_id[state.move[i].pos2], state.move[i].pos1, f);
             }
+
+            int field_id = state.field_id;
+            if(depth && (depth % snap_freq == 0)) {
+                field_id = (int)fields.size();
+                Field f2 = f;
+                // f2.copy(f);
+                cerr << f2.server_pos.size() << " " << f.server_pos.size() << endl;
+                f2.moved = depth;
+                fields.emplace_back(f2);
+                cerr << f2.server_pos.size() << " " << f.server_pos.size() << " " << fields.size() << endl;
+                // f = fields[state.field_id];
+            }
+
 
             for(int iter=0;iter<search_limit;iter++){
                 int server_id = randint() % (int)f.server_pos.size();
+
                 int pos = f.server_pos[server_id];
+
                 for(int dir=0;dir<4;dir++) {
                     if(can_move(pos, dir, f) == false) continue;
                     int npos = pos + dxy[dir];
@@ -900,21 +965,23 @@ private:
 
                     empty_move_operation(f.field_empty_id[npos], pos, f);
                     int nscore = calc_connect_score(_action_count_limit - (int)state.move.size() - 1, f);
+
                     empty_move_operation(f.field_empty_id[pos], npos, f);
 
                     state.move.push_back(mv);
-                    pq[depth+1].push(State(nscore, nhash, state.move, state.field_id));
+                    pq[depth+1].push(State(nscore, nhash, state.move, field_id));
                     state.move.pop_back();
                 }
             }
 
             
-            for (auto itr = state.move.rbegin(); itr != state.move.rend(); ++itr) {
+            for (auto itr = state.move.rbegin(); itr + f.moved != state.move.rend(); ++itr) {
                 // cerr << "<- " << itr->pos1 << " " << itr->pos2 << "\n";
                 empty_move_operation(f.field_empty_id[itr->pos1], itr->pos2, f);
             }
 
             if(depth_cnt == breadth) {
+                while(pq[depth].size()) pq[depth].pop();
                 depth_cnt = 0;
                 depth++;
             }
@@ -936,6 +1003,8 @@ private:
 
 
 int main(){
+    ios::sync_with_stdio(false);
+    cin.tie(0);
 
     Timer time;
 
@@ -999,7 +1068,6 @@ int main(){
         SparseSolver s(N, K, field, time);
         auto ret = s.solve();
         s.print_answer(ret);
-
     }
 
     cerr << "Time = " << time.elapsed() << "\n";
