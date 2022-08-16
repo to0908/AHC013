@@ -1,7 +1,3 @@
-// #define _GLIBCXX_DEBUG
-// #pragma GCC target("avx2")
-// #pragma GCC optimize("O3")
-// #pragma GCC optimize("unroll-loops")
 #include<bits/stdc++.h> 
 using namespace std;
 typedef unsigned long long ll;
@@ -89,15 +85,15 @@ static constexpr int N_MIN[4] = {15, 18, 21, 24};
 static constexpr int N_MAX[4] = {39, 42, 45, 48};
 
 // パラメータ
-const int SPARSE_TIME_LIMIT = 2840;
+const int TIME_LIMIT = 2840;
+int SPARSE_TIME_LIMIT;
 const int DENSE_TIME_LIMIT = 2770;
 int target_range = 5;
 static constexpr int DENSE_THRESHOLD[4] = {3, 3, 3, 3};  // N <= MIN + x -> DENSE
 
 // DENSE
 static constexpr int DENSE_BREADTH[4] = {32, 15, 10, 8};
-static constexpr int DENSE_SEARCH_LIMIT[4] = {32, 15, 9, 8}; 
-// static constexpr int DENSE_MAX_MOVE_COUNT[4] = {60, 165, 240, 325};
+static constexpr int DENSE_SEARCH_LIMIT[4] = {32, 15, 9, 7}; 
 static constexpr int DENSE_MAX_MOVE_COUNT[4] = {160, 265, 340, 425};
 static constexpr int DENSE_START_LIMIT[4] = {2, 3, 3, 3};
 int breadth;
@@ -105,8 +101,7 @@ int search_limit;
 
 // SPARSE
 static constexpr int SPARSE_BREADTH[4] = {16, 12, 7, 9};
-static constexpr int SPARSE_SEARCH_LIMIT[4] = {16, 11, 6, 9}; 
-// static constexpr int SPARSE_MAX_MOVE_COUNT[4] = {80, 165, 210, 280};
+static constexpr int SPARSE_SEARCH_LIMIT[4] = {16, 11, 6, 8}; 
 static constexpr int SPARSE_MAX_MOVE_COUNT[4] = {180, 265, 310, 480};
 static constexpr int SPARSE_START_LIMIT[4] = {1, 1, 2, 2};
 
@@ -333,10 +328,8 @@ struct BaseSolver {
 
     vector<ConnectAction> base_connect(int action_count_limit){
 
-        Timer time;
         vector<ConnectAction> ret;
         UnionFind uf(K*100);
-
 
         // 無害な連結
         for(auto pos : server_pos){
@@ -487,7 +480,6 @@ struct BaseSolver {
         //     // TODO
         // }
 
-        cerr << "Connect Time = " << time.elapsed() << "\n";
         return ret;
     }
 
@@ -819,7 +811,16 @@ struct DenseSolver : public BaseSolver{
 
 struct SparseSolver : public BaseSolver{
     int max_move_size;
-    SparseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
+    vector<int> rand_server_permutation;
+
+    SparseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {
+        SPARSE_TIME_LIMIT = TIME_LIMIT;
+        if(N_MAX[K-2] - N <= 3)SPARSE_TIME_LIMIT -= 10;
+
+        rand_server_permutation.resize(K*100);
+        for(int i=0;i<(int)rand_server_permutation.size();i++) rand_server_permutation[i] = i;
+        shuffle(rand_server_permutation.begin(), rand_server_permutation.end(), engine);
+    }
 
 
     Result solve(){
@@ -878,6 +879,7 @@ private:
         int depth = 0;
         int limit = SPARSE_START_LIMIT[K-2];
         int depth_cnt = 0;
+        int idx = 0;
         while(int ti = time.elapsed() < SPARSE_TIME_LIMIT) {
             if(depth == max_move_size) break;
             if(ti > 2400) limit = 1;
@@ -898,24 +900,10 @@ private:
             }
 
             for(int iter=0;iter<search_limit;iter++){
-                int server_id = randint() % (int)server_pos.size();
-                // int pos = server_pos[server_id];
-                // for(int dir=0;dir<4;dir++) {
-                //     if(can_move(pos, dir) == false) continue;
-                //     int npos = pos + dxy[dir];
-                //     MoveAction mv = MoveAction(pos, npos);
-                //     ll nhash = calc_hash(state.field_hash, mv);
-                //     if(used[depth+1][nhash]) continue;
-                //     used[depth+1][nhash]=1;
-
-                //     empty_move_operation(field_empty_id[npos], pos);
-                //     int nscore = calc_connect_score(_action_count_limit - (int)state.move.size() - 1);
-                //     empty_move_operation(field_empty_id[pos], npos);
-
-                //     state.move.push_back(mv);
-                //     pq[depth+1].push(State(nscore, nhash, state.move));
-                //     state.move.pop_back();
-                // }
+                // int server_id = randint() % (int)server_pos.size();
+                int server_id = rand_server_permutation[idx];
+                idx++;
+                if(idx == (int)server_pos.size()) idx = 0;
                 dfs(limit, server_id, -1, state, pq, used, depth);
             }
 
@@ -931,12 +919,11 @@ private:
         }
 
 
-        for(int i=depth;i<depth+2;i++) {
+        for(int i=depth;i<depth+3;i++) {
             if(i >= max_move_size) break;
             if(pq[i].empty()) continue;
             State state = pq[i].top();
             if(chmax(best_score, state.score)) {
-                // cerr << i << " " << state.score << " " << state.field_hash << "\n";
                 best_move = state.move;
             }
         }
@@ -946,6 +933,8 @@ private:
 
 
 int main(){
+    ios::sync_with_stdio(false);
+    cin.tie(0);
 
     Timer time;
 
@@ -959,9 +948,6 @@ int main(){
     if(N - N_MIN[K-2] <= DENSE_THRESHOLD[K-2]) {
         cerr << "Solver: Dense" << "\n";
 
-        // if(K == 5) target_range = 3; // 3
-
-
         breadth = DENSE_BREADTH[K-2];
         search_limit = DENSE_SEARCH_LIMIT[K-2];
 
@@ -969,8 +955,6 @@ int main(){
         auto ret = s.solve();
         s.print_answer(ret);
 
-        // cout << 0 << endl;
-        // cout << 0 << endl;
     }
     else {
         cerr << "Solver: Sparse" << "\n";
@@ -1010,15 +994,9 @@ int main(){
         search_limit += margin / t;
 
 
-        // if(K < 4) {
-        //     cout << 0 << endl;
-        //     cout << 0 << endl;
-        // }
-        // else{
-            SparseSolver s(N, K, field, time);
-            auto ret = s.solve();
-            s.print_answer(ret);
-        // }
+        SparseSolver s(N, K, field, time);
+        auto ret = s.solve();
+        s.print_answer(ret);
 
     }
 
