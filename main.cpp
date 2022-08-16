@@ -89,8 +89,8 @@ static constexpr int N_MIN[4] = {15, 18, 21, 24};
 static constexpr int N_MAX[4] = {39, 42, 45, 48};
 
 // パラメータ
-const int SPARSE_TIME_LIMIT = 2800; // 提出するときは2850にする
-const int DENSE_TIME_LIMIT = 2750;
+const int SPARSE_TIME_LIMIT = 2850; // 提出するときは2850にする
+const int DENSE_TIME_LIMIT = 2780;
 int target_range = 5;
 static constexpr int DENSE_THRESHOLD[4] = {3, 2, 3, 3};  // N <= MIN + x -> DENSE
 
@@ -98,14 +98,15 @@ static constexpr int DENSE_THRESHOLD[4] = {3, 2, 3, 3};  // N <= MIN + x -> DENS
 static constexpr int DENSE_BREADTH[4] = {30, 25, 18, 13};
 static constexpr int DENSE_SEARCH_LIMIT[4] = {30, 25, 17, 12}; 
 static constexpr int DENSE_MAX_MOVE_COUNT[4] = {80, 160, 225, 295};
-static constexpr int START_LIMIT[4] = {2, 3, 3, 3};
+static constexpr int DENSE_START_LIMIT[4] = {2, 3, 3, 3};
 int breadth;
 int search_limit;
 
 // SPARSE
-static constexpr int SPARSE_BREADTH[4] = {15, 12, 14, 15};
-static constexpr int SPARSE_SEARCH_LIMIT[4] = {15, 11, 12, 13}; 
+static constexpr int SPARSE_BREADTH[4] = {15, 12, 9, 12};
+static constexpr int SPARSE_SEARCH_LIMIT[4] = {15, 11, 9, 10}; 
 static constexpr int SPARSE_MAX_MOVE_COUNT[4] = {80, 165, 200, 320};
+static constexpr int SPARSE_START_LIMIT[4] = {1, 1, 2, 2};
 
 
 struct BaseSolver {
@@ -743,7 +744,7 @@ struct DenseSolver : public BaseSolver{
         int depth = 0;
         int depth_cnt = 0;
         int idx = 0;
-        int limit = START_LIMIT[K-2];
+        int limit = DENSE_START_LIMIT[K-2];
         while(int ti = time.elapsed() < DENSE_TIME_LIMIT) {
             if(ti > 2000) limit = 2;
             if(depth == max_move_size) break;
@@ -813,8 +814,9 @@ struct DenseSolver : public BaseSolver{
     }
 };
 
-struct SparseSolver : public BaseSolver{
 
+struct SparseSolver : public BaseSolver{
+    int max_move_size;
     SparseSolver(int N, int K, const vector<string> &field_, Timer &time) : BaseSolver(N, K, field_, time) {}
 
 
@@ -833,12 +835,37 @@ struct SparseSolver : public BaseSolver{
 
 private:
 
+    void dfs(int limit, int server_id, int pre, 
+            State &state, priority_queue<State> *pq, unordered_map<ll, bool> &used, int depth) {
+        if(depth+1 == max_move_size)return;
+
+        int pos = server_pos[server_id];
+        for(int dir=0;dir<4;dir++) {
+            if(can_move(pos, dir) == false) continue;
+            int npos = pos + dxy[dir];
+            if(npos == pre) continue;
+            MoveAction mv = MoveAction(pos, npos);
+            ll nhash = calc_hash(state.field_hash, mv);
+            if(used[nhash]) continue;
+            used[nhash]=1;
+
+            empty_move_operation(field_empty_id[npos], pos);
+            int nscore = calc_connect_score(_action_count_limit - (int)state.move.size() - 1);
+
+            state.move.push_back(mv);
+            pq[depth+1].push(State(nscore, nhash, state.move));
+            if(limit != 1) dfs(limit-1, server_id, pos, state, pq, used, depth);
+            empty_move_operation(field_empty_id[pos], npos);
+            state.move.pop_back();
+        }
+    }
+
     vector<MoveAction> move(){
         vector<MoveAction> ret;
 
-        const int max_move_size = SPARSE_MAX_MOVE_COUNT[K-2];
+        max_move_size = SPARSE_MAX_MOVE_COUNT[K-2];
         priority_queue<State> pq[max_move_size + 1];
-        unordered_map<ll, bool> used[max_move_size + 1];
+        unordered_map<ll, bool> used;
 
         int best_score = 0;
         ll hash = field_hash();
@@ -847,10 +874,11 @@ private:
         pq[0].push(initial_state);
 
         int depth = 0;
-        // int limit = 1;
+        int limit = SPARSE_START_LIMIT[K-2];
         int depth_cnt = 0;
-        while(time.elapsed() < SPARSE_TIME_LIMIT) {
+        while(int ti = time.elapsed() < SPARSE_TIME_LIMIT) {
             if(depth == max_move_size) break;
+            if(ti > 2400) limit = 1;
             if(pq[depth].empty()) {
                 depth++;
                 depth_cnt = 0;
@@ -859,40 +887,38 @@ private:
             State state = pq[depth].top();
             pq[depth].pop();
             if(depth_cnt == 0 and chmax(best_score, state.score)) {
-                // cerr << depth << " " << state.score << " " << state.field_hash << "\n";
                 best_move = state.move;
             }
             depth_cnt++;
 
             for(auto &mv : state.move) {
-                // cerr << "-> " << mv.pos1 << " " << mv.pos2 << "\n";
                 empty_move_operation(field_empty_id[mv.pos2], mv.pos1);
             }
 
             for(int iter=0;iter<search_limit;iter++){
                 int server_id = randint() % (int)server_pos.size();
-                int pos = server_pos[server_id];
-                for(int dir=0;dir<4;dir++) {
-                    if(can_move(pos, dir) == false) continue;
-                    int npos = pos + dxy[dir];
-                    MoveAction mv = MoveAction(pos, npos);
-                    ll nhash = calc_hash(state.field_hash, mv);
-                    if(used[depth+1][nhash]) continue;
-                    used[depth+1][nhash]=1;
+                // int pos = server_pos[server_id];
+                // for(int dir=0;dir<4;dir++) {
+                //     if(can_move(pos, dir) == false) continue;
+                //     int npos = pos + dxy[dir];
+                //     MoveAction mv = MoveAction(pos, npos);
+                //     ll nhash = calc_hash(state.field_hash, mv);
+                //     if(used[depth+1][nhash]) continue;
+                //     used[depth+1][nhash]=1;
 
-                    empty_move_operation(field_empty_id[npos], pos);
-                    int nscore = calc_connect_score(_action_count_limit - (int)state.move.size() - 1);
-                    empty_move_operation(field_empty_id[pos], npos);
+                //     empty_move_operation(field_empty_id[npos], pos);
+                //     int nscore = calc_connect_score(_action_count_limit - (int)state.move.size() - 1);
+                //     empty_move_operation(field_empty_id[pos], npos);
 
-                    state.move.push_back(mv);
-                    pq[depth+1].push(State(nscore, nhash, state.move));
-                    state.move.pop_back();
-                }
+                //     state.move.push_back(mv);
+                //     pq[depth+1].push(State(nscore, nhash, state.move));
+                //     state.move.pop_back();
+                // }
+                dfs(limit, server_id, -1, state, pq, used, depth);
             }
 
             
             for (auto itr = state.move.rbegin(); itr != state.move.rend(); ++itr) {
-                // cerr << "<- " << itr->pos1 << " " << itr->pos2 << "\n";
                 empty_move_operation(field_empty_id[itr->pos1], itr->pos2);
             }
 
@@ -937,9 +963,12 @@ int main(){
         breadth = DENSE_BREADTH[K-2];
         search_limit = DENSE_SEARCH_LIMIT[K-2];
 
-        DenseSolver s(N, K, field, time);
-        auto ret = s.solve();
-        s.print_answer(ret);
+        // DenseSolver s(N, K, field, time);
+        // auto ret = s.solve();
+        // s.print_answer(ret);
+
+        cout << 0 << endl;
+        cout << 0 << endl;
     }
     else {
         cerr << "Solver: Sparse" << "\n";
@@ -978,9 +1007,16 @@ int main(){
         breadth += margin / t;
         search_limit += margin / t;
 
-        SparseSolver s(N, K, field, time);
-        auto ret = s.solve();
-        s.print_answer(ret);
+
+        if(K < 4) {
+            cout << 0 << endl;
+            cout << 0 << endl;
+        }
+        else{
+            SparseSolver s(N, K, field, time);
+            auto ret = s.solve();
+            s.print_answer(ret);
+        }
 
     }
 
