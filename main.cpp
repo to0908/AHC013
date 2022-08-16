@@ -103,8 +103,8 @@ int breadth;
 int search_limit;
 
 // SPARSE
-static constexpr int SPARSE_BREADTH[4] = {15, 12, 9, 12};
-static constexpr int SPARSE_SEARCH_LIMIT[4] = {15, 11, 9, 10}; 
+static constexpr int SPARSE_BREADTH[4] = {15, 12, 9, 11};
+static constexpr int SPARSE_SEARCH_LIMIT[4] = {15, 11, 8, 10}; 
 static constexpr int SPARSE_MAX_MOVE_COUNT[4] = {80, 165, 200, 320};
 static constexpr int SPARSE_START_LIMIT[4] = {1, 1, 2, 2};
 
