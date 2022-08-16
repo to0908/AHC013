@@ -92,10 +92,14 @@ int target_range = 5;
 static constexpr int DENSE_THRESHOLD[4] = {3, 3, 3, 3};  // N <= MIN + x -> DENSE
 
 // DENSE
-static constexpr int DENSE_BREADTH[4] = {32, 15, 10, 8};
-static constexpr int DENSE_SEARCH_LIMIT[4] = {32, 15, 9, 7}; 
+// static constexpr int DENSE_BREADTH[4] = {32, 15, 10, 8};
+// static constexpr int DENSE_SEARCH_LIMIT[4] = {32, 15, 9, 7}; 
+// static constexpr int DENSE_MAX_MOVE_COUNT[4] = {160, 265, 340, 425};
+// static constexpr int DENSE_START_LIMIT[4] = {2, 3, 3, 3};
+static constexpr int DENSE_BREADTH[4] = {32, 15, 10, 5};
+static constexpr int DENSE_SEARCH_LIMIT[4] = {32, 15, 9, 8}; 
 static constexpr int DENSE_MAX_MOVE_COUNT[4] = {160, 265, 340, 425};
-static constexpr int DENSE_START_LIMIT[4] = {2, 3, 3, 3};
+static constexpr int DENSE_START_LIMIT[4] = {2, 3, 3, 4};
 int breadth;
 int search_limit;
 
