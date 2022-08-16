@@ -96,6 +96,7 @@ static constexpr int N_MAX[4] = {39,42,45,48};
 // Nと実行時間にはかなり強い相関があるため、逆を言えばNが小さいケースではパラメータを大きくできる
 static constexpr int SPARSE_BREADTH[4] = {15, 10, 10, 15};
 static constexpr int SPARSE_SEARCH_LIMIT[4] = {15, 12, 10, 12}; 
+static constexpr int MAX_MOVE_COUNT[4] = {80, 170, 250, 350};
 int sparse_breadth;
 int sparse_search_limit;
 const double DENSE_THRESHOLD = 0.65; // TODO: 0.65がベスト?
@@ -781,7 +782,7 @@ private:
     vector<MoveAction> move(){
         vector<MoveAction> ret;
 
-        const int max_move_size = K * 100 - 100;
+        const int max_move_size = MAX_MOVE_COUNT[K-2];
         priority_queue<State> pq[max_move_size + 1];
         unordered_map<ll, bool> used[max_move_size + 1];
 
@@ -890,29 +891,31 @@ int main(){
 
         int margin = N_MAX[K-2] - N;
         int t = (K>=4)?3:1;
+        margin += t;
         if(K == 2){
             int tmp = margin;
             margin -= 1;
             if(margin >= 15) margin *= 1.5;
             else if(margin <= 5) margin += 2;
-            if(tmp >= 18) margin += 2;
+            if(tmp >= 18) margin += 3;
         }
         else if(K == 3){
-            // margin *= 0.9;
+            if(margin >= 18) margin++;
             if(margin <= 4) margin += 2;
             margin -= 2;
             if(margin >= 10) margin -= 2;
         }
         else if(K == 4){
+            if(margin == 20) margin += 3;
             if(margin >= 15) margin += 12;
             margin -= 3;
         }
         else if(K == 5){
-            if(margin >= 18) margin += 4;
+            if(margin == 20) margin += 9;
+            else if(margin >= 18) margin += 6;
             else if(margin >= 15) margin += 3;
             else margin -= 6;
         }
-        margin -= t;
         sparse_breadth += margin / t;
         sparse_search_limit += margin / t;
 
