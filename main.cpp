@@ -89,23 +89,25 @@ static constexpr int N_MIN[4] = {15, 18, 21, 24};
 static constexpr int N_MAX[4] = {39, 42, 45, 48};
 
 // パラメータ
-const int SPARSE_TIME_LIMIT = 2850; // 提出するときは2850にする
-const int DENSE_TIME_LIMIT = 2780;
+const int SPARSE_TIME_LIMIT = 2840;
+const int DENSE_TIME_LIMIT = 2770;
 int target_range = 5;
 static constexpr int DENSE_THRESHOLD[4] = {3, 3, 3, 3};  // N <= MIN + x -> DENSE
 
 // DENSE
-static constexpr int DENSE_BREADTH[4] = {30, 25, 18, 13};
-static constexpr int DENSE_SEARCH_LIMIT[4] = {30, 25, 17, 12}; 
-static constexpr int DENSE_MAX_MOVE_COUNT[4] = {80, 160, 225, 295};
+static constexpr int DENSE_BREADTH[4] = {32, 15, 10, 8};
+static constexpr int DENSE_SEARCH_LIMIT[4] = {32, 15, 9, 8}; 
+// static constexpr int DENSE_MAX_MOVE_COUNT[4] = {60, 165, 240, 325};
+static constexpr int DENSE_MAX_MOVE_COUNT[4] = {160, 265, 340, 425};
 static constexpr int DENSE_START_LIMIT[4] = {2, 3, 3, 3};
 int breadth;
 int search_limit;
 
 // SPARSE
-static constexpr int SPARSE_BREADTH[4] = {15, 12, 9, 11};
-static constexpr int SPARSE_SEARCH_LIMIT[4] = {15, 11, 8, 10}; 
-static constexpr int SPARSE_MAX_MOVE_COUNT[4] = {80, 165, 200, 320};
+static constexpr int SPARSE_BREADTH[4] = {16, 12, 7, 9};
+static constexpr int SPARSE_SEARCH_LIMIT[4] = {16, 11, 6, 9}; 
+// static constexpr int SPARSE_MAX_MOVE_COUNT[4] = {80, 165, 210, 280};
+static constexpr int SPARSE_MAX_MOVE_COUNT[4] = {180, 265, 310, 480};
 static constexpr int SPARSE_START_LIMIT[4] = {1, 1, 2, 2};
 
 
@@ -165,14 +167,14 @@ struct BaseSolver {
     }
 
     ll calc_hash(ll hash, MoveAction &move) {
-        assert(field[move.pos1] < 6);
-        assert(field[move.pos2] < 6);
-        assert(field[move.pos2] >= 0);
-        assert(field[move.pos1] >= 0);
-        assert(move.pos1 < (N+2)*(N+2));
-        assert(move.pos2 < (N+2)*(N+2));
-        assert(move.pos2 >= 0);
-        assert(move.pos1 >= 0);
+        // assert(field[move.pos1] < 6);
+        // assert(field[move.pos2] < 6);
+        // assert(field[move.pos2] >= 0);
+        // assert(field[move.pos1] >= 0);
+        // assert(move.pos1 < (N+2)*(N+2));
+        // assert(move.pos2 < (N+2)*(N+2));
+        // assert(move.pos2 >= 0);
+        // assert(move.pos1 >= 0);
         hash ^= rand[move.pos1][field[move.pos1]];
         hash ^= rand[move.pos2][field[move.pos2]];
         hash ^= rand[move.pos2][field[move.pos1]];
@@ -259,11 +261,11 @@ struct BaseSolver {
 
     void empty_move_operation(int emp_id, int npos){
         int pos = empty_pos[emp_id];
-        assert(field[npos] > 0 and field[npos] <= K);
-        assert(field[pos] == 0);
-        assert(field_server_id[pos] == -1);
-        assert(field_server_id[npos] >= 0);
-        assert(field_server_id[npos] < K*100);
+        // assert(field[npos] > 0 and field[npos] <= K);
+        // assert(field[pos] == 0);
+        // assert(field_server_id[pos] == -1);
+        // assert(field_server_id[npos] >= 0);
+        // assert(field_server_id[npos] < K*100);
 
         swap(field[pos], field[npos]);
         swap(field_server_id[pos], field_server_id[npos]);
@@ -273,8 +275,8 @@ struct BaseSolver {
         server_pos[field_server_id[pos]] = pos;
         if(field[pos] <= target_range) calc_target_server_pos[calc_target_field_server_id[pos]] = pos;
 
-        assert(field_server_id[pos] >= 0);
-        assert(field_server_id[npos] == -1);
+        // assert(field_server_id[pos] >= 0);
+        // assert(field_server_id[npos] == -1);
         // server
         for(int dir=0;dir<4;dir++){
             int nx = pos + dxy[dir];
@@ -322,7 +324,7 @@ struct BaseSolver {
             if (field[npos] == field[pos]) {
                 return ConnectAction(pos, npos);
             }
-            assert(field[npos] == 0);
+            // assert(field[npos] == 0);
             field[npos] = USED;
             npos += dxy[dir];
         }
@@ -352,7 +354,7 @@ struct BaseSolver {
                 bool is_only_this_pair = true;
                 int now = pos + dxy[dir];
                 while(now != npos) {
-                    assert(field[now] == 0);
+                    // assert(field[now] == 0);
                     auto [pos_x, pos_y] = vertical_server_pair[dir][now];
                     int x = field[pos_x], y = field[pos_y];
                     if(x > 0 and x == y and !uf.same(field_server_id[pos_x], field_server_id[pos_y])) {
@@ -667,9 +669,9 @@ private:
             int x = get_server_pos(pos, 3);
             int y = get_server_pos(pos, 1);
             int d = dxy[1];
-            assert(x <= y);
-            assert(field[x] != -1);
-            assert(field[y] != -1);
+            // assert(x <= y);
+            // assert(field[x] != -1);
+            // assert(field[y] != -1);
             for(int npos=x; npos <= y; npos += d){
                 vertical_server_pair[dir][npos] = {x, y};
             }
@@ -678,9 +680,9 @@ private:
             int x = get_server_pos(pos, 2);
             int y = get_server_pos(pos, 0);
             int d = dxy[0];
-            assert(x <= y);
-            assert(field[x] != -1);
-            assert(field[y] != -1);
+            // assert(x <= y);
+            // assert(field[x] != -1);
+            // assert(field[y] != -1);
             for(int npos=x; npos <= y; npos += d){
                 vertical_server_pair[dir][npos] = {x, y};
             }
@@ -709,8 +711,8 @@ struct DenseSolver : public BaseSolver{
             int npos = pos + dxy[dir];
             if(npos == pre) continue;
             if(field[npos] > 0){
-                assert(field[npos] != USED);
-                assert(field[npos] <= K);
+                // assert(field[npos] != USED);
+                // assert(field[npos] <= K);
 
                 MoveAction mv = MoveAction(npos, pos);
                 ll nhash = calc_hash(state.field_hash, mv);
@@ -722,7 +724,7 @@ struct DenseSolver : public BaseSolver{
                 
                 state.move.push_back(mv);
                 pq[depth+1].push(State(nscore, nhash, state.move));
-                if(limit != 1) dfs(limit-1, emp_id, pos, state, pq, used, depth);
+                if(limit != 1) dfs(limit-1, emp_id, pos, state, pq, used, depth+1);
                 state.move.pop_back();
                 empty_move_operation(emp_id, pos);
             }
@@ -854,7 +856,7 @@ private:
 
             state.move.push_back(mv);
             pq[depth+1].push(State(nscore, nhash, state.move));
-            if(limit != 1) dfs(limit-1, server_id, pos, state, pq, used, depth);
+            if(limit != 1) dfs(limit-1, server_id, pos, state, pq, used, depth+1);
             empty_move_operation(field_empty_id[pos], npos);
             state.move.pop_back();
         }
@@ -963,12 +965,12 @@ int main(){
         breadth = DENSE_BREADTH[K-2];
         search_limit = DENSE_SEARCH_LIMIT[K-2];
 
-        // DenseSolver s(N, K, field, time);
-        // auto ret = s.solve();
-        // s.print_answer(ret);
+        DenseSolver s(N, K, field, time);
+        auto ret = s.solve();
+        s.print_answer(ret);
 
-        cout << 0 << endl;
-        cout << 0 << endl;
+        // cout << 0 << endl;
+        // cout << 0 << endl;
     }
     else {
         cerr << "Solver: Sparse" << "\n";
@@ -1008,15 +1010,15 @@ int main(){
         search_limit += margin / t;
 
 
-        if(K < 4) {
-            cout << 0 << endl;
-            cout << 0 << endl;
-        }
-        else{
+        // if(K < 4) {
+        //     cout << 0 << endl;
+        //     cout << 0 << endl;
+        // }
+        // else{
             SparseSolver s(N, K, field, time);
             auto ret = s.solve();
             s.print_answer(ret);
-        }
+        // }
 
     }
 
