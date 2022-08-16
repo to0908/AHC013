@@ -800,7 +800,6 @@ struct DenseSolver : public BaseSolver{
     }
 
     Result solve(){
-        cerr << "BEGIN " << calc_connect_score(_action_count_limit) << "\n";
         auto moves = move();
         for(auto &mv : moves) {
             empty_move_operation(field_empty_id[mv.pos2], mv.pos1);
@@ -820,8 +819,6 @@ struct SparseSolver : public BaseSolver{
 
 
     Result solve(){
-        // create random moves
-        cerr << "BEGIN " << calc_connect_score(_action_count_limit) << "\n";
         auto moves = move();
 
         int action_count_limit = _action_count_limit - (int)moves.size();
