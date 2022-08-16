@@ -124,6 +124,7 @@ if __name__ == '__main__':
         plt.close()
         print('-------------')
 
+
     if True:
 
         print(f'Sparse, N={(move_count[:, 7] == 0).sum()}')
